@@ -1,0 +1,16 @@
+# Apache configuration for Mboa Health API
+# Handles CORS preflight and JSON error pages
+
+# Disable directory listings (OWASP A05)
+Options -Indexes
+
+# Disable server signature
+ServerSignature Off
+
+# ── Block direct HTTP access to sensitive files ───────────────────────────────
+# Prevent config, database, helper, and schema files from being served directly.
+# These files contain credentials and internal implementation details.
+<FilesMatch "^(config|db|helpers)\.php$|^schema\.sql$">
+    Order deny,allow
+    Deny from all
+</FilesMatch>

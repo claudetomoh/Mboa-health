@@ -1,0 +1,13 @@
+{
+    "folders": [
+		{
+			"path": "../../stitch_splash_screen"
+		},
+		{
+			"path": "../../stitch_splash_screen (1)"
+		}
+	],
+    "settings": {
+        "chat.agent.maxRequests": 50
+    }
+}

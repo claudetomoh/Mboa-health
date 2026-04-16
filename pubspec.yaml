@@ -1,0 +1,110 @@
+name: mboa_health
+description: "Mboa Health — Your Smart Health Guide. A premium concierge health app for Cameroon."
+publish_to: 'none'
+
+# The following defines the version and build number for your application.
+# A version number is three numbers separated by dots, like 1.2.43
+# followed by an optional build number separated by a +.
+# Both the version and the builder number may be overridden in flutter
+# build by specifying --build-name and --build-number, respectively.
+# In Android, build-name is used as versionName while build-number used as versionCode.
+# Read more about Android versioning at https://developer.android.com/studio/publish/versioning
+# In iOS, build-name is used as CFBundleShortVersionString while build-number is used as CFBundleVersion.
+# Read more about iOS versioning at
+# https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
+# In Windows, build-name is used as the major, minor, and patch parts
+# of the product and file versions while build-number is used as the build suffix.
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.7
+
+# Dependencies specify other packages that your package needs in order to work.
+# To automatically upgrade your package dependencies to the latest versions
+# consider running `flutter pub upgrade --major-versions`. Alternatively,
+# dependencies can be manually updated by changing the version numbers below to
+# the latest version available on pub.dev. To see which dependencies have newer
+# versions available, run `flutter pub outdated`.
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # ── UI & Design ────────────────────────────────────────────────────────────
+  # Design system fonts: Manrope (Headline) + Inter (Body)
+  google_fonts: ^6.2.1
+
+  # ── State Management ───────────────────────────────────────────────────────
+  provider: ^6.1.2
+
+  # ── Networking ─────────────────────────────────────────────────────────────
+  # HTTP client for REST API calls to the PHP backend
+  http: ^1.2.2
+
+  # ── Utilities ──────────────────────────────────────────────────────────────
+  # Cupertino icons for iOS-style icon support
+  cupertino_icons: ^1.0.8
+
+  # Safe equality comparisons and immutable collections
+  equatable: ^2.0.5
+
+  # Persistent key-value storage (first-launch flag, user prefs)
+  shared_preferences: ^2.3.3
+
+  # Encrypted storage for JWT tokens (OWASP A02)
+  flutter_secure_storage: ^9.2.4
+
+  # ── Security ───────────────────────────────────────────────────────────────
+  # SHA-256 / HMAC hashing for client-side password preparation (OWASP A02).
+  # Server-side bcrypt is applied on the received hash before DB storage.
+  crypto: ^3.0.3
+
+  # ── Phone / URL launch ─────────────────────────────────────────────────────
+  # Used in EmergencyPortalScreen to launch tel: / sms: URIs for emergency.
+  url_launcher: ^6.3.1
+
+  # ── Camera / Gallery ───────────────────────────────────────────────────────
+  # Lets users capture or select medical document images in AddRecordScreen.
+  image_picker: ^1.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # The "flutter_lints" package below contains a set of recommended lints to
+  # encourage good coding practices. The lint set provided by the package is
+  # activated in the `analysis_options.yaml` file located at the root of your
+  # package. See that file for information about deactivating specific lint
+  # rules and activating additional ones.
+  flutter_lints: ^6.0.0
+
+# For information on the generic Dart part of this file, see the
+# following page: https://dart.dev/tools/pub/pubspec
+
+# The following section is specific to Flutter packages.
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/lottie/
+
+  # To add custom fonts to your application, add a fonts section here,
+  # in this "flutter" section. Each entry in this list should have a
+  # "family" key with the font family name, and a "fonts" key with a
+  # list giving the asset and other descriptors for the font. For
+  # example:
+  # fonts:
+  #   - family: Schyler
+  #     fonts:
+  #       - asset: fonts/Schyler-Regular.ttf
+  #       - asset: fonts/Schyler-Italic.ttf
+  #         style: italic
+  #   - family: Trajan Pro
+  #     fonts:
+  #       - asset: fonts/TrajanPro.ttf
+  #       - asset: fonts/TrajanPro_Bold.ttf
+  #         weight: 700
+  #
+  # For details regarding fonts from package dependencies,
+  # see https://flutter.dev/to/font-from-package
