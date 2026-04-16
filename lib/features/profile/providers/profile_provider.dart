@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/config/api_config.dart';
 import '../../../core/models/user_model.dart';
@@ -58,6 +59,30 @@ class ProfileProvider extends ChangeNotifier {
     final result = await ApiClient.instance.put(ApiConfig.profile, payload);
     if (result is ApiSuccess<Map<String, dynamic>>) {
       await fetchProfile(); // reload fresh data
+      return null;
+    }
+    return (result as ApiFailure<Map<String, dynamic>>).message;
+  }
+
+  // ── Avatar upload ─────────────────────────────────────────────────────────
+
+  /// Picks [file] from image_picker, uploads it, and updates local [_user].
+  /// Returns an error message on failure, or null on success.
+  Future<String?> uploadAvatar(XFile file) async {
+    final bytes    = await file.readAsBytes();
+    final filename = file.name.isNotEmpty ? file.name : 'avatar.jpg';
+    final result   = await ApiClient.instance.uploadFile(
+      ApiConfig.uploadAvatar,
+      'avatar',
+      bytes,
+      filename,
+    );
+    if (result is ApiSuccess<Map<String, dynamic>>) {
+      final url = result.data['avatar_url'] as String?;
+      if (url != null && _user != null) {
+        _user = _user!.copyWith(avatarUrl: url);
+        notifyListeners();
+      }
       return null;
     }
     return (result as ApiFailure<Map<String, dynamic>>).message;

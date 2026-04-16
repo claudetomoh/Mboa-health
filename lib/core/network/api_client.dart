@@ -121,6 +121,33 @@ class ApiClient {
     }
   }
 
+  // ── Multipart file upload ────────────────────────────────────────────────
+
+  /// Uploads [fileBytes] as a multipart POST to [url].
+  /// Uses the same JWT bearer token as all other authenticated requests.
+  Future<ApiResult<Map<String, dynamic>>> uploadFile(
+    String url,
+    String fieldName,
+    List<int> fileBytes,
+    String filename,
+  ) async {
+    try {
+      final token = await SecureStorage.getToken();
+      final request = http.MultipartRequest('POST', Uri.parse(url));
+      if (token != null) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
+      request.files.add(
+        http.MultipartFile.fromBytes(fieldName, fileBytes, filename: filename),
+      );
+      final streamed = await request.send().timeout(ApiConfig.timeout);
+      final response = await http.Response.fromStream(streamed);
+      return _parse(response);
+    } catch (e) {
+      return ApiFailure(_networkError(e));
+    }
+  }
+
   // ── Response parser ───────────────────────────────────────────────────────
 
   ApiResult<Map<String, dynamic>> _parse(http.Response response) {

@@ -22,7 +22,8 @@ abstract final class ApiConfig {
   static const String clinics = '$baseUrl/api/clinics/index.php';
 
   // ── Profile ────────────────────────────────────────────────────────────────
-  static const String profile = '$baseUrl/api/profile/index.php';
+  static const String profile       = '$baseUrl/api/profile/index.php';
+  static const String uploadAvatar  = '$baseUrl/api/profile/upload_avatar.php';
 
   // ── Notifications ──────────────────────────────────────────────────────────
   static const String notifications = '$baseUrl/api/notifications/index.php';

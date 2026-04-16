@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -104,8 +105,41 @@ class _AppBar extends StatelessWidget {
   }
 }
 
-class _ProfileHeader extends StatelessWidget {
+class _ProfileHeader extends StatefulWidget {
   const _ProfileHeader();
+
+  @override
+  State<_ProfileHeader> createState() => _ProfileHeaderState();
+}
+
+class _ProfileHeaderState extends State<_ProfileHeader> {
+  bool _uploading = false;
+
+  Future<void> _pickAndUpload() async {
+    final picker = ImagePicker();
+    final XFile? picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 85,
+    );
+    if (picked == null || !mounted) return;
+
+    setState(() => _uploading = true);
+    final provider = context.read<ProfileProvider>();
+    final error = await provider.uploadAvatar(picked);
+    if (!mounted) return;
+    setState(() => _uploading = false);
+
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -115,41 +149,74 @@ class _ProfileHeader extends StatelessWidget {
         Stack(
           clipBehavior: Clip.none,
           children: [
-            Container(
-              width: 112,
-              height: 112,
-              decoration: BoxDecoration(
-                color: AppColors.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(AppSpacing.radiusXxl),
-                border: Border.all(color: Colors.white, width: 4),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.12),
-                      blurRadius: 16)
-                ],
+            // ── Avatar circle ─────────────────────────────────────────────
+            GestureDetector(
+              onTap: _uploading ? null : _pickAndUpload,
+              child: Consumer<ProfileProvider>(
+                builder: (context, p, _) {
+                  final avatarUrl = p.user?.avatarUrl;
+                  return Container(
+                    width: 112,
+                    height: 112,
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceContainerHigh,
+                      borderRadius:
+                          BorderRadius.circular(AppSpacing.radiusXxl),
+                      border: Border.all(color: Colors.white, width: 4),
+                      boxShadow: [
+                        BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 16)
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius:
+                          BorderRadius.circular(AppSpacing.radiusXxl - 4),
+                      child: _uploading
+                          ? const Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 3,
+                                color: AppColors.primary,
+                              ),
+                            )
+                          : avatarUrl != null
+                              ? Image.network(
+                                  avatarUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) => const Icon(
+                                    Icons.person_rounded,
+                                    color: AppColors.onSurfaceVariant,
+                                    size: 56,
+                                  ),
+                                )
+                              : const Icon(Icons.person_rounded,
+                                  color: AppColors.onSurfaceVariant, size: 56),
+                    ),
+                  );
+                },
               ),
-              child: const Icon(Icons.person_rounded,
-                  color: AppColors.onSurfaceVariant, size: 56),
             ),
+            // ── Camera button ─────────────────────────────────────────────
             Positioned(
               bottom: -6,
               right: -6,
               child: GestureDetector(
-                onTap: () => _showPersonalInfoSheet(context),
+                onTap: _uploading ? null : _pickAndUpload,
                 child: Container(
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
                     color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                    borderRadius:
+                        BorderRadius.circular(AppSpacing.radiusMd),
                     boxShadow: [
                       BoxShadow(
                           color: AppColors.primary.withValues(alpha: 0.4),
                           blurRadius: 8)
                     ],
                   ),
-                  child: const Icon(Icons.edit_rounded,
-                      color: Colors.white, size: 16),
+                  child: const Icon(Icons.camera_alt_rounded,
+                      color: Colors.white, size: 18),
                 ),
               ),
             ),
