@@ -1,5 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -7,6 +10,7 @@ import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_typography.dart';
 import '../../../core/routing/app_routes.dart';
 import '../auth/providers/auth_provider.dart';
+import '../profile/providers/profile_provider.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Dashboard Screen
@@ -23,6 +27,17 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedNav = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final auth    = context.read<AuthProvider>();
+      final profile = context.read<ProfileProvider>();
+      if (auth.user != null) profile.seedFromAuth(auth.user!);
+      profile.fetchProfile();
+    });
+  }
 
   void _onNavTap(int index) {
     if (index == _selectedNav) return;
@@ -114,12 +129,7 @@ class _DashboardAppBar extends StatelessWidget {
           icon: const Icon(Icons.notifications_outlined, color: AppColors.primary),
           tooltip: 'Notifications',
         ),
-        IconButton(
-          onPressed: () =>
-              Navigator.of(context).pushNamed(AppRoutes.profile),
-          icon: const Icon(Icons.person_outline_rounded, color: AppColors.primary),
-          tooltip: 'Profile',
-        ),
+        const _AppBarAvatar(),
       ],
     );
   }
@@ -132,30 +142,211 @@ class _DashboardAppBar extends StatelessWidget {
 class _GreetingSection extends StatelessWidget {
   const _GreetingSection();
 
+  String _greeting() {
+    final h = DateTime.now().hour;
+    if (h < 12) return 'Good Morning,';
+    if (h < 17) return 'Good Afternoon,';
+    return 'Good Evening,';
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(
-          'Good Morning,',
-          style: AppTypography.bodyMd.copyWith(
-            color: AppColors.onSurfaceVariant,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 0.4,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _greeting(),
+                style: AppTypography.bodyMd.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.4,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Consumer<AuthProvider>(
+                builder: (_, auth, _) => Text(
+                  'Hello, ${auth.user?.firstName ?? 'there'} 👋',
+                  style: AppTypography.displaySm.copyWith(
+                    color: AppColors.onSurface,
+                    letterSpacing: -1.0,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: AppSpacing.xs),
-        Consumer<AuthProvider>(
-          builder: (_, auth, _) => Text(
-            'Hello, ${auth.user?.firstName ?? 'there'}',
-            style: AppTypography.displaySm.copyWith(
-              color: AppColors.onSurface,
-              letterSpacing: -1.0,
+        const SizedBox(width: AppSpacing.lg),
+        const _GreetingAvatar(),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// App Bar Avatar (top-right, taps to profile)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _AppBarAvatar extends StatelessWidget {
+  const _AppBarAvatar();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: AppSpacing.sm),
+      child: GestureDetector(
+        onTap: () => Navigator.of(context).pushNamed(AppRoutes.profile),
+        child: Consumer<ProfileProvider>(
+          builder: (_, p, _) {
+            final url = p.user?.avatarUrl;
+            return Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.surfaceContainerHigh,
+                border: Border.all(color: AppColors.primary, width: 2),
+              ),
+              child: ClipOval(
+                child: url != null
+                    ? Image.network(
+                        url,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => const Icon(
+                          Icons.person_rounded,
+                          color: AppColors.onSurfaceVariant,
+                          size: 20,
+                        ),
+                      )
+                    : const Icon(
+                        Icons.person_rounded,
+                        color: AppColors.onSurfaceVariant,
+                        size: 20,
+                      ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Greeting Avatar (larger, beside greeting text, taps to profile / pick photo)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GreetingAvatar extends StatefulWidget {
+  const _GreetingAvatar();
+
+  @override
+  State<_GreetingAvatar> createState() => _GreetingAvatarState();
+}
+
+class _GreetingAvatarState extends State<_GreetingAvatar> {
+  bool _uploading = false;
+  Uint8List? _localBytes;
+
+  Future<void> _pickAndUpload() async {
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 85,
+    );
+    if (picked == null || !mounted) return;
+    final bytes = await picked.readAsBytes();
+    setState(() {
+      _localBytes = bytes;
+      _uploading = true;
+    });
+    final err = await context.read<ProfileProvider>().uploadAvatar(picked);
+    if (!mounted) return;
+    setState(() => _uploading = false);
+    if (err != null) {
+      setState(() => _localBytes = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(err), backgroundColor: AppColors.error),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _uploading ? null : _pickAndUpload,
+      child: Stack(
+        children: [
+          Consumer<ProfileProvider>(
+            builder: (_, p, _) {
+              final url = p.user?.avatarUrl;
+              return Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.surfaceContainerHigh,
+                  border: Border.all(color: Colors.white, width: 3),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.10),
+                      blurRadius: 12,
+                    )
+                  ],
+                ),
+                child: ClipOval(
+                  child: _uploading
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: AppColors.primary,
+                          ),
+                        )
+                      : _localBytes != null
+                          ? Image.memory(_localBytes!, fit: BoxFit.cover)
+                          : url != null
+                              ? Image.network(
+                                  url,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) => const Icon(
+                                    Icons.person_rounded,
+                                    color: AppColors.onSurfaceVariant,
+                                    size: 36,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.person_rounded,
+                                  color: AppColors.onSurfaceVariant,
+                                  size: 36,
+                                ),
+                ),
+              );
+            },
+          ),
+          // Small camera badge
+          Positioned(
+            bottom: 0,
+            right: 0,
+            child: Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              child: const Icon(
+                Icons.camera_alt_rounded,
+                color: Colors.white,
+                size: 11,
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

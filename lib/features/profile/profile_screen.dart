@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -114,6 +116,7 @@ class _ProfileHeader extends StatefulWidget {
 
 class _ProfileHeaderState extends State<_ProfileHeader> {
   bool _uploading = false;
+  Uint8List? _localImageBytes;
 
   Future<void> _pickAndUpload() async {
     final picker = ImagePicker();
@@ -125,13 +128,20 @@ class _ProfileHeaderState extends State<_ProfileHeader> {
     );
     if (picked == null || !mounted) return;
 
-    setState(() => _uploading = true);
+    // Read bytes once and show preview immediately
+    final bytes = await picked.readAsBytes();
+    setState(() {
+      _localImageBytes = bytes;
+      _uploading = true;
+    });
+
     final provider = context.read<ProfileProvider>();
     final error = await provider.uploadAvatar(picked);
     if (!mounted) return;
     setState(() => _uploading = false);
 
     if (error != null) {
+      setState(() => _localImageBytes = null);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(error),
@@ -179,18 +189,23 @@ class _ProfileHeaderState extends State<_ProfileHeader> {
                                 color: AppColors.primary,
                               ),
                             )
-                          : avatarUrl != null
-                              ? Image.network(
-                                  avatarUrl,
+                          : _localImageBytes != null
+                              ? Image.memory(
+                                  _localImageBytes!,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) => const Icon(
-                                    Icons.person_rounded,
-                                    color: AppColors.onSurfaceVariant,
-                                    size: 56,
-                                  ),
                                 )
-                              : const Icon(Icons.person_rounded,
-                                  color: AppColors.onSurfaceVariant, size: 56),
+                              : avatarUrl != null
+                                  ? Image.network(
+                                      avatarUrl,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, _, _) => const Icon(
+                                        Icons.person_rounded,
+                                        color: AppColors.onSurfaceVariant,
+                                        size: 56,
+                                      ),
+                                    )
+                                  : const Icon(Icons.person_rounded,
+                                      color: AppColors.onSurfaceVariant, size: 56),
                     ),
                   );
                 },
