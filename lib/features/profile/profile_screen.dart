@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -115,9 +113,6 @@ class _ProfileHeader extends StatefulWidget {
 }
 
 class _ProfileHeaderState extends State<_ProfileHeader> {
-  bool _uploading = false;
-  Uint8List? _localImageBytes;
-
   Future<void> _pickAndUpload() async {
     final picker = ImagePicker();
     final XFile? picked = await picker.pickImage(
@@ -128,20 +123,9 @@ class _ProfileHeaderState extends State<_ProfileHeader> {
     );
     if (picked == null || !mounted) return;
 
-    // Read bytes once and show preview immediately
-    final bytes = await picked.readAsBytes();
-    setState(() {
-      _localImageBytes = bytes;
-      _uploading = true;
-    });
-
-    final provider = context.read<ProfileProvider>();
-    final error = await provider.uploadAvatar(picked);
+    final error = await context.read<ProfileProvider>().uploadAvatar(picked);
     if (!mounted) return;
-    setState(() => _uploading = false);
-
     if (error != null) {
-      setState(() => _localImageBytes = null);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(error),
@@ -153,6 +137,9 @@ class _ProfileHeaderState extends State<_ProfileHeader> {
 
   @override
   Widget build(BuildContext context) {
+    final p = context.watch<ProfileProvider>();
+    final role = p.user?.role ?? 'patient';
+    final email = p.user?.email ?? '';
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
@@ -161,54 +148,49 @@ class _ProfileHeaderState extends State<_ProfileHeader> {
           children: [
             // ── Avatar circle ─────────────────────────────────────────────
             GestureDetector(
-              onTap: _uploading ? null : _pickAndUpload,
-              child: Consumer<ProfileProvider>(
-                builder: (context, p, _) {
-                  final avatarUrl = p.user?.avatarUrl;
-                  return Container(
-                    width: 112,
-                    height: 112,
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceContainerHigh,
-                      borderRadius:
-                          BorderRadius.circular(AppSpacing.radiusXxl),
-                      border: Border.all(color: Colors.white, width: 4),
-                      boxShadow: [
-                        BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.12),
-                            blurRadius: 16)
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius:
-                          BorderRadius.circular(AppSpacing.radiusXxl - 4),
-                      child: _uploading
-                          ? const Center(
-                              child: CircularProgressIndicator(
-                                strokeWidth: 3,
-                                color: AppColors.primary,
-                              ),
+              onTap: p.avatarUploading ? null : _pickAndUpload,
+              child: Container(
+                width: 112,
+                height: 112,
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerHigh,
+                  borderRadius:
+                      BorderRadius.circular(AppSpacing.radiusXxl),
+                  border: Border.all(color: Colors.white, width: 4),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.12),
+                        blurRadius: 16)
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius:
+                      BorderRadius.circular(AppSpacing.radiusXxl - 4),
+                  child: p.avatarUploading
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 3,
+                            color: AppColors.primary,
+                          ),
+                        )
+                      : p.avatarPreviewBytes != null
+                          ? Image.memory(
+                              p.avatarPreviewBytes!,
+                              fit: BoxFit.cover,
                             )
-                          : _localImageBytes != null
-                              ? Image.memory(
-                                  _localImageBytes!,
+                          : p.user?.avatarUrl != null
+                              ? Image.network(
+                                  p.user!.avatarUrl!,
                                   fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) => const Icon(
+                                    Icons.person_rounded,
+                                    color: AppColors.onSurfaceVariant,
+                                    size: 56,
+                                  ),
                                 )
-                              : avatarUrl != null
-                                  ? Image.network(
-                                      avatarUrl,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, _, _) => const Icon(
-                                        Icons.person_rounded,
-                                        color: AppColors.onSurfaceVariant,
-                                        size: 56,
-                                      ),
-                                    )
-                                  : const Icon(Icons.person_rounded,
-                                      color: AppColors.onSurfaceVariant, size: 56),
-                    ),
-                  );
-                },
+                              : const Icon(Icons.person_rounded,
+                                  color: AppColors.onSurfaceVariant, size: 56),
+                ),
               ),
             ),
             // ── Camera button ─────────────────────────────────────────────
@@ -216,7 +198,7 @@ class _ProfileHeaderState extends State<_ProfileHeader> {
               bottom: -6,
               right: -6,
               child: GestureDetector(
-                onTap: _uploading ? null : _pickAndUpload,
+                onTap: p.avatarUploading ? null : _pickAndUpload,
                 child: Container(
                   width: 36,
                   height: 36,
@@ -242,24 +224,16 @@ class _ProfileHeaderState extends State<_ProfileHeader> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Consumer<ProfileProvider>(
-                builder: (_, p, _) => Text(
-                  p.user?.fullName ?? 'Your Profile',
-                  style: AppTypography.headlineMd.copyWith(
-                      letterSpacing: -0.5),
-                ),
+              Text(
+                p.user?.fullName ?? 'Your Profile',
+                style: AppTypography.headlineMd.copyWith(
+                    letterSpacing: -0.5),
               ),
               const SizedBox(height: AppSpacing.xs),
-              Consumer<ProfileProvider>(
-                builder: (_, p, _) {
-                  final role = p.user?.role ?? 'patient';
-                  final email = p.user?.email ?? '';
-                  return Text(
-                    '${role[0].toUpperCase()}${role.substring(1)} • $email',
-                    style: AppTypography.bodyMd.copyWith(
-                        fontWeight: FontWeight.w500),
-                  );
-                },
+              Text(
+                '${role[0].toUpperCase()}${role.substring(1)} • $email',
+                style: AppTypography.bodyMd.copyWith(
+                    fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: AppSpacing.sm),
               const Wrap(

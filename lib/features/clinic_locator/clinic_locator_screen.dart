@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
@@ -25,7 +28,9 @@ class ClinicLocatorScreen extends StatefulWidget {
 
 class _ClinicLocatorScreenState extends State<ClinicLocatorScreen> {
   final _searchCtrl = TextEditingController();
+  final _mapController = MapController();
   Timer? _debounce;
+  LatLng? _userPosition;
 
   @override
   void initState() {
@@ -34,6 +39,26 @@ class _ClinicLocatorScreenState extends State<ClinicLocatorScreen> {
       context.read<ClinicLocatorProvider>().fetchClinics();
     });
     _searchCtrl.addListener(_onSearchChanged);
+    _getUserLocation();
+  }
+
+  Future<void> _getUserLocation() async {
+    try {
+      LocationPermission perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.deniedForever) return;
+      final pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.medium, timeLimit: Duration(seconds: 10)));
+      if (!mounted) return;
+      final latLng = LatLng(pos.latitude, pos.longitude);
+      setState(() => _userPosition = latLng);
+      _mapController.move(latLng, 13);
+    } catch (_) {
+      // Gracefully fall back to default centre
+    }
   }
 
   void _onSearchChanged() {
@@ -51,6 +76,7 @@ class _ClinicLocatorScreenState extends State<ClinicLocatorScreen> {
   void dispose() {
     _debounce?.cancel();
     _searchCtrl.dispose();
+    _mapController.dispose();
     super.dispose();
   }
 
@@ -67,7 +93,11 @@ class _ClinicLocatorScreenState extends State<ClinicLocatorScreen> {
                 // App Bar
                 _AppBar(),
                 // Map
-                _MapPlaceholder(searchCtrl: _searchCtrl),
+                _ClinicMap(
+                  mapController: _mapController,
+                  searchCtrl: _searchCtrl,
+                  userPosition: _userPosition,
+                ),
                 // Clinic list panel
                 Expanded(
                   child: Container(
@@ -148,7 +178,7 @@ class _ClinicLocatorScreenState extends State<ClinicLocatorScreen> {
                                                         fontWeight:
                                                             FontWeight
                                                                 .w500)),
-                                            Text('Clinics in Yaoundé',
+                                            Text('Clinics Near You',
                                                 style: AppTypography
                                                     .headlineMd
                                                     .copyWith(
@@ -249,20 +279,88 @@ class _AppBar extends StatelessWidget {
   }
 }
 
-class _MapPlaceholder extends StatelessWidget {
-  const _MapPlaceholder({required this.searchCtrl});
+class _ClinicMap extends StatelessWidget {
+  const _ClinicMap({
+    required this.mapController,
+    required this.searchCtrl,
+    required this.userPosition,
+  });
+  final MapController mapController;
   final TextEditingController searchCtrl;
+  final LatLng? userPosition;
+
+  static const _defaultCenter = LatLng(3.8480, 11.5021);
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       height: 260,
-      width: double.infinity,
-      color: AppColors.surfaceContainerLow,
       child: Stack(
         children: [
-          // Simulated map grid
-          CustomPaint(painter: _MapGridPainter(), child: const SizedBox.expand()),
+          Consumer<ClinicLocatorProvider>(
+            builder: (_, provider, _) {
+              final clinics = provider.clinics
+                  .where((c) => c.latitude != null && c.longitude != null)
+                  .toList();
+              return FlutterMap(
+                mapController: mapController,
+                options: MapOptions(
+                  initialCenter: userPosition ?? _defaultCenter,
+                ),
+                children: [
+                  TileLayer(
+                    urlTemplate:
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.mboa.health',
+                  ),
+                  if (userPosition != null)
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: userPosition!,
+                          width: 40,
+                          height: 40,
+                          child: const Icon(
+                            Icons.my_location_rounded,
+                            color: AppColors.primary,
+                            size: 32,
+                            shadows: [
+                              Shadow(
+                                  color: Colors.white,
+                                  blurRadius: 4)
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  if (clinics.isNotEmpty)
+                    MarkerLayer(
+                      markers: clinics
+                          .map((c) => Marker(
+                                point:
+                                    LatLng(c.latitude!, c.longitude!),
+                                width: 32,
+                                height: 32,
+                                child: Tooltip(
+                                  message: c.name,
+                                  child: const Icon(
+                                    Icons.local_hospital_rounded,
+                                    color: AppColors.secondary,
+                                    size: 28,
+                                    shadows: [
+                                      Shadow(
+                                          color: Colors.white,
+                                          blurRadius: 4)
+                                    ],
+                                  ),
+                                ),
+                              ))
+                          .toList(),
+                    ),
+                ],
+              );
+            },
+          ),
           // Floating search bar
           Positioned(
             top: AppSpacing.base,
@@ -314,108 +412,8 @@ class _MapPlaceholder extends StatelessWidget {
               ),
             ),
           ),
-          // Map pins
-          const Positioned(
-            top: 90,
-            left: 80,
-            child: _MapPin(
-                label: 'Central Clinic', primary: true),
-          ),
-          const Positioned(
-            top: 130,
-            right: 100,
-            child: _MapPin(label: 'Riverside Wellness', primary: false),
-          ),
-          // User pin
-          const Positioned(
-            bottom: 60,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Icon(Icons.location_on_rounded,
-                  color: AppColors.primary, size: 32),
-            ),
-          ),
         ],
       ),
-    );
-  }
-}
-
-class _MapGridPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = AppColors.outlineVariant.withValues(alpha: 0.4)
-      ..strokeWidth = 1;
-    const step = 40.0;
-    for (double x = 0; x < size.width; x += step) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-    for (double y = 0; y < size.height; y += step) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _MapPin extends StatelessWidget {
-  const _MapPin({required this.label, required this.primary});
-  final String label;
-  final bool primary;
-
-  @override
-  Widget build(BuildContext context) {
-    final bg = primary ? AppColors.primary : AppColors.secondary;
-    const onBg = Colors.white;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md, vertical: AppSpacing.xs),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius:
-                BorderRadius.circular(AppSpacing.radiusFull),
-            boxShadow: [
-              BoxShadow(
-                  color: bg.withValues(alpha: 0.4), blurRadius: 8)
-            ],
-          ),
-          child: Text(label,
-              style: AppTypography.labelSm
-                  .copyWith(color: onBg, letterSpacing: 0)),
-        ),
-        const SizedBox(height: AppSpacing.xs2),
-        Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            color: primary
-                ? AppColors.primaryContainer
-                : AppColors.secondaryContainer,
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 3),
-            boxShadow: [
-              BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.15),
-                  blurRadius: 6)
-            ],
-          ),
-          child: Icon(
-            primary
-                ? Icons.local_hospital_rounded
-                : Icons.medical_services_rounded,
-            size: 14,
-            color: primary
-                ? AppColors.onPrimaryContainer
-                : AppColors.onSecondaryContainer,
-          ),
-        ),
-      ],
     );
   }
 }
