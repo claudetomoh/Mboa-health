@@ -132,14 +132,7 @@ class _AppBar extends StatelessWidget {
       title: Text('Alerts',
           style: AppTypography.titleLg.copyWith(
               color: AppColors.primary, fontWeight: FontWeight.w800)),
-      actions: [
-        IconButton(
-          onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Options coming soon.')),
-          ),
-          icon: const Icon(Icons.more_vert_rounded, color: AppColors.primary),
-        ),
-      ],
+      actions: const [],
     );
   }
 }

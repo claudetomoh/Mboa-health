@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -26,6 +24,8 @@ class AddRecordScreen extends StatefulWidget {
 class _AddRecordScreenState extends State<AddRecordScreen> {
   final _formKey = GlobalKey<FormState>(); // OWASP A03: form-level validation
   final _descCtrl = TextEditingController();
+  final _doctorCtrl = TextEditingController();
+  final _facilityCtrl = TextEditingController();
   final _picker = ImagePicker();
   String _selectedCategory = 'Prescription';
   DateTime? _selectedDate;
@@ -35,6 +35,8 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
   @override
   void dispose() {
     _descCtrl.dispose();
+    _doctorCtrl.dispose();
+    _facilityCtrl.dispose();
     super.dispose();
   }
 
@@ -135,11 +137,15 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
     final d = _selectedDate!;
     final dateStr =
         '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    final safeDoctor = InputSanitizer.sanitize(_doctorCtrl.text.trim());
+    final safeFacility = InputSanitizer.sanitize(_facilityCtrl.text.trim());
     final error = await context.read<HealthRecordsProvider>().addRecord({
-      'type':  _typeMap[_selectedCategory] ?? 'other',
-      'title': _selectedCategory,
-      'notes': safeDesc,
-      'date':  dateStr,
+      'type':     _typeMap[_selectedCategory] ?? 'other',
+      'title':    _selectedCategory,
+      'notes':    safeDesc,
+      'date':     dateStr,
+      'doctor':   safeDoctor,
+      'facility': safeFacility,
     });
     if (!mounted) return;
     setState(() => _saving = false);
@@ -234,6 +240,70 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                           ),
                           validator: (v) =>
                               AppValidators.validateNote(v),
+                        ),
+                        const SizedBox(height: AppSpacing.base),
+                        const _FormLabel(label: 'Doctor / Physician'),
+                        const SizedBox(height: AppSpacing.sm),
+                        TextFormField(
+                          controller: _doctorCtrl,
+                          maxLength: 200,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.deny(RegExp(r'<')),
+                          ],
+                          decoration: InputDecoration(
+                            hintText: 'E.g. Dr. Alvarez...',
+                            hintStyle: AppTypography.bodyMd
+                                .copyWith(color: AppColors.outline),
+                            filled: true,
+                            fillColor: AppColors.surfaceContainerLow,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                  AppSpacing.radiusXl),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                  AppSpacing.radiusXl),
+                              borderSide: const BorderSide(
+                                  color: AppColors.primary),
+                            ),
+                            contentPadding:
+                                const EdgeInsets.all(AppSpacing.base),
+                            counterStyle: AppTypography.labelSm.copyWith(
+                                color: AppColors.onSurfaceVariant),
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.base),
+                        const _FormLabel(label: 'Facility / Hospital'),
+                        const SizedBox(height: AppSpacing.sm),
+                        TextFormField(
+                          controller: _facilityCtrl,
+                          maxLength: 200,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.deny(RegExp(r'<')),
+                          ],
+                          decoration: InputDecoration(
+                            hintText: 'E.g. Central Hospital Yaoundé...',
+                            hintStyle: AppTypography.bodyMd
+                                .copyWith(color: AppColors.outline),
+                            filled: true,
+                            fillColor: AppColors.surfaceContainerLow,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                  AppSpacing.radiusXl),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                  AppSpacing.radiusXl),
+                              borderSide: const BorderSide(
+                                  color: AppColors.primary),
+                            ),
+                            contentPadding:
+                                const EdgeInsets.all(AppSpacing.base),
+                            counterStyle: AppTypography.labelSm.copyWith(
+                                color: AppColors.onSurfaceVariant),
+                          ),
                         ),
                       ],
                     ),
@@ -375,14 +445,7 @@ class _AppBar extends StatelessWidget {
       title: Text('Mboa Health',
           style: AppTypography.titleLg.copyWith(
               color: AppColors.primary, fontWeight: FontWeight.w800)),
-      actions: [
-        IconButton(
-          onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Options coming soon.')),
-          ),
-          icon: const Icon(Icons.more_vert_rounded, color: AppColors.primary),
-        ),
-      ],
+      actions: const [],
     );
   }
 }

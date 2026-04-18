@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../core/constants/app_typography.dart';
 import '../../core/routing/app_routes.dart';
 import '../../shared/widgets/gradient_button.dart';
+import 'providers/symptom_checker_provider.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Symptom Checker Screen
@@ -22,16 +24,44 @@ class SymptomCheckerScreen extends StatefulWidget {
 class _SymptomCheckerScreenState extends State<SymptomCheckerScreen> {
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
-  final List<String> _selected = ['Migraine', 'Nausea'];
+  String _searchQuery = '';
 
-  static const _suggestions = [
-    _Symptom(Icons.thermostat_rounded, 'Fever', 'High body temp'),
-    _Symptom(Icons.air_rounded, 'Shortness of breath', 'Difficulty breathing'),
-    _Symptom(Icons.sick_rounded, 'Stomach pain', 'Abdominal cramps'),
-    _Symptom(Icons.psychology_rounded, 'Dizziness', 'Feeling faint'),
-    _Symptom(Icons.monitor_heart_rounded, 'Palpitations', 'Irregular heartbeat'),
-    _Symptom(Icons.visibility_off_rounded, 'Blurred Vision', 'Sight changes'),
+  // Full symptom catalogue (shown as suggestion cards)
+  static const _allSuggestions = [
+    _Symptom(Icons.thermostat_rounded,       'Fever',                'High body temperature'),
+    _Symptom(Icons.thermostat_auto_rounded,  'High Fever',           'Temperature above 39 °C'),
+    _Symptom(Icons.air_rounded,              'Shortness of breath',  'Difficulty breathing'),
+    _Symptom(Icons.sick_rounded,             'Stomach pain',         'Abdominal cramps'),
+    _Symptom(Icons.psychology_rounded,       'Dizziness',            'Feeling faint or lightheaded'),
+    _Symptom(Icons.monitor_heart_rounded,    'Palpitations',         'Irregular or fast heartbeat'),
+    _Symptom(Icons.visibility_off_rounded,   'Blurred Vision',       'Sight changes'),
+    _Symptom(Icons.sentiment_very_dissatisfied_rounded, 'Nausea',   'Feeling like vomiting'),
+    _Symptom(Icons.water_drop_rounded,       'Diarrhea',             'Loose, watery stools'),
+    _Symptom(Icons.medical_services_rounded, 'Vomiting',             'Expelling stomach contents'),
+    _Symptom(Icons.thunderstorm_rounded,     'Headache',             'Head pain or pressure'),
+    _Symptom(Icons.blur_on_rounded,           'Migraine',             'Severe throbbing headache'),
+    _Symptom(Icons.ac_unit_rounded,           'Chills',               'Shivering with fever'),
+    _Symptom(Icons.airline_seat_flat_rounded,'Fatigue',              'Extreme tiredness'),
+    _Symptom(Icons.fireplace_rounded,        'Body ache',            'Generalized muscle pain'),
+    _Symptom(Icons.healing_rounded,          'Cough',                'Persistent coughing'),
+    _Symptom(Icons.face_rounded,             'Sore throat',          'Throat pain or irritation'),
+    _Symptom(Icons.water_rounded,            'Runny nose',           'Nasal discharge'),
+    _Symptom(Icons.monitor_outlined,         'Chest pain',           'Chest tightness or pain'),
+    _Symptom(Icons.back_hand_rounded,        'Back pain',            'Lower or upper back pain'),
+    _Symptom(Icons.directions_run_rounded,   'Joint pain',           'Pain in joints'),
+    _Symptom(Icons.opacity_rounded,          'Sweating',             'Excessive sweating'),
+    _Symptom(Icons.local_drink_rounded,      'Excessive thirst',     'Always feeling thirsty'),
+    _Symptom(Icons.wc_rounded,               'Frequent urination',   'Urinating more than usual'),
+    _Symptom(Icons.sentiment_dissatisfied_rounded, 'Loss of appetite','Not feeling hungry'),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _searchCtrl.addListener(() {
+      setState(() => _searchQuery = _searchCtrl.text.trim().toLowerCase());
+    });
+  }
 
   @override
   void dispose() {
@@ -40,8 +70,35 @@ class _SymptomCheckerScreenState extends State<SymptomCheckerScreen> {
     super.dispose();
   }
 
+  List<_Symptom> get _filteredSuggestions {
+    if (_searchQuery.isEmpty) return _allSuggestions;
+    return _allSuggestions
+        .where((s) =>
+            s.name.toLowerCase().contains(_searchQuery) ||
+            s.sub.toLowerCase().contains(_searchQuery))
+        .toList();
+  }
+
+  void _onAnalyze() {
+    final provider = context.read<SymptomCheckerProvider>();
+    if (provider.selectedSymptoms.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select at least one symptom first.'),
+        ),
+      );
+      return;
+    }
+    provider.analyze();
+    Navigator.pushNamed(context, AppRoutes.analysisResult);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<SymptomCheckerProvider>();
+    final selected = provider.selectedSymptoms;
+    final filtered = _filteredSuggestions;
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark.copyWith(statusBarColor: Colors.transparent),
       child: Scaffold(
@@ -67,40 +124,78 @@ class _SymptomCheckerScreenState extends State<SymptomCheckerScreen> {
                         color: AppColors.onSurfaceVariant)),
                   const SizedBox(height: AppSpacing.xl),
                   // Search
-                  _SearchField(controller: _searchCtrl, focusNode: _searchFocus),
+                  _SearchField(
+                    controller: _searchCtrl,
+                    focusNode: _searchFocus,
+                    onSubmitted: (value) {
+                      final trimmed = value.trim();
+                      if (trimmed.isNotEmpty) {
+                        context.read<SymptomCheckerProvider>().addSymptom(trimmed);
+                        _searchCtrl.clear();
+                      }
+                    },
+                  ),
                   const SizedBox(height: AppSpacing.xl),
                   // Selected chips
-                  Text('CURRENTLY SELECTED',
-                      style: AppTypography.labelSm.copyWith(letterSpacing: 1.5)),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('CURRENTLY SELECTED',
+                          style: AppTypography.labelSm.copyWith(letterSpacing: 1.5)),
+                      if (selected.isNotEmpty)
+                        GestureDetector(
+                          onTap: () => context.read<SymptomCheckerProvider>().clearAll(),
+                          child: Text('Clear all',
+                              style: AppTypography.labelSm.copyWith(
+                                  color: AppColors.error,
+                                  letterSpacing: 0.5)),
+                        ),
+                    ],
+                  ),
                   const SizedBox(height: AppSpacing.md),
                   _SelectedChips(
-                    selected: _selected,
-                    onRemove: (s) => setState(() => _selected.remove(s)),
+                    selected: selected,
+                    onRemove: (s) =>
+                        context.read<SymptomCheckerProvider>().removeSymptom(s),
                     onAddMore: () => _searchFocus.requestFocus(),
                   ),
                   const SizedBox(height: AppSpacing.xl2),
                   // Suggestions
-                  Text('COMMON SYMPTOMS',
-                      style: AppTypography.labelSm.copyWith(letterSpacing: 1.5)),
-                  const SizedBox(height: AppSpacing.md),
-                  _SuggestionsGrid(
-                    items: _suggestions,
-                    onTap: (name) {
-                      if (!_selected.contains(name)) {
-                        setState(() => _selected.add(name));
-                      }
-                    },
+                  Text(
+                    _searchQuery.isEmpty ? 'COMMON SYMPTOMS' : 'SEARCH RESULTS',
+                    style: AppTypography.labelSm.copyWith(letterSpacing: 1.5),
                   ),
+                  const SizedBox(height: AppSpacing.md),
+                  if (filtered.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
+                      child: Center(
+                        child: Text(
+                          'No symptoms found for "$_searchQuery".\nPress Enter to add it manually.',
+                          textAlign: TextAlign.center,
+                          style: AppTypography.bodyMd.copyWith(
+                              color: AppColors.onSurfaceVariant),
+                        ),
+                      ),
+                    )
+                  else
+                    _SuggestionsGrid(
+                      items: filtered,
+                      selectedNames: selected,
+                      onTap: (name) =>
+                          context.read<SymptomCheckerProvider>().addSymptom(name),
+                    ),
                   const SizedBox(height: AppSpacing.xl),
                   // Validated card
                   const _ValidatedCard(),
                   const SizedBox(height: AppSpacing.xl),
                   // CTA
                   GradientButton(
-                    label: 'Analyze My Symptoms',
+                    label: selected.isEmpty
+                        ? 'Select symptoms above'
+                        : 'Analyze My Symptoms (${selected.length})',
                     icon: Icons.arrow_forward_rounded,
-                    onPressed: () =>
-                        Navigator.pushNamed(context, AppRoutes.analysisResult),
+                    onPressed: _onAnalyze,
                   ),
                   const SizedBox(height: AppSpacing.xl6),
                 ]),
@@ -130,14 +225,7 @@ class _AppBar extends StatelessWidget {
       title: Text('Mboa Health',
           style: AppTypography.titleLg.copyWith(
             color: AppColors.primary, fontWeight: FontWeight.w800)),
-      actions: [
-        IconButton(
-          onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Options coming soon.')),
-          ),
-          icon: const Icon(Icons.more_vert_rounded, color: AppColors.primary),
-        ),
-      ],
+      actions: const [],
     );
   }
 }
@@ -145,9 +233,14 @@ class _AppBar extends StatelessWidget {
 // ─── Search Field ─────────────────────────────────────────────────────────────
 
 class _SearchField extends StatelessWidget {
-  const _SearchField({required this.controller, this.focusNode});
+  const _SearchField({
+    required this.controller,
+    this.focusNode,
+    this.onSubmitted,
+  });
   final TextEditingController controller;
   final FocusNode? focusNode;
+  final ValueChanged<String>? onSubmitted;
 
   @override
   Widget build(BuildContext context) {
@@ -155,10 +248,18 @@ class _SearchField extends StatelessWidget {
       controller: controller,
       focusNode: focusNode,
       style: AppTypography.bodyMdOnSurface,
+      textInputAction: TextInputAction.done,
+      onSubmitted: onSubmitted,
       decoration: InputDecoration(
-        hintText: 'Search symptoms (e.g. Headache, Fever...)',
+        hintText: 'Search or type a symptom...',
         hintStyle: AppTypography.bodyMd,
         prefixIcon: const Icon(Icons.search_rounded, color: AppColors.outline),
+        suffixIcon: controller.text.isNotEmpty
+            ? IconButton(
+                icon: const Icon(Icons.clear_rounded, color: AppColors.outline, size: 20),
+                onPressed: () => controller.clear(),
+              )
+            : null,
         filled: true,
         fillColor: AppColors.surfaceContainerLow,
         border: OutlineInputBorder(
@@ -266,9 +367,14 @@ class _Symptom {
 }
 
 class _SuggestionsGrid extends StatelessWidget {
-  const _SuggestionsGrid({required this.items, required this.onTap});
+  const _SuggestionsGrid({
+    required this.items,
+    required this.onTap,
+    required this.selectedNames,
+  });
   final List<_Symptom> items;
   final ValueChanged<String> onTap;
+  final List<String> selectedNames;
 
   @override
   Widget build(BuildContext context) {
@@ -284,13 +390,20 @@ class _SuggestionsGrid extends StatelessWidget {
       itemCount: items.length,
       itemBuilder: (_, i) {
         final s = items[i];
+        final isSelected = selectedNames.contains(s.name);
         return GestureDetector(
           onTap: () => onTap(s.name),
-          child: Container(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
             padding: const EdgeInsets.all(AppSpacing.lg),
             decoration: BoxDecoration(
-              color: AppColors.surfaceContainerLowest,
+              color: isSelected
+                  ? AppColors.primaryContainer
+                  : AppColors.surfaceContainerLowest,
               borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+              border: isSelected
+                  ? Border.all(color: AppColors.primary, width: 1.5)
+                  : null,
               boxShadow: [
                 BoxShadow(
                     color: Colors.black.withValues(alpha: 0.04),
@@ -301,13 +414,32 @@ class _SuggestionsGrid extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(s.icon, color: AppColors.secondary, size: 26),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Icon(s.icon,
+                        color: isSelected
+                            ? AppColors.primary
+                            : AppColors.secondary,
+                        size: 26),
+                    if (isSelected)
+                      const Icon(Icons.check_circle_rounded,
+                          color: AppColors.primary, size: 18),
+                  ],
+                ),
                 const Spacer(),
                 Text(s.name,
                     style: AppTypography.labelLg.copyWith(
-                        fontWeight: FontWeight.w700)),
+                        fontWeight: FontWeight.w700,
+                        color: isSelected
+                            ? AppColors.onPrimaryContainer
+                            : AppColors.onSurface)),
                 const SizedBox(height: AppSpacing.xs2),
-                Text(s.sub, style: AppTypography.labelSm),
+                Text(s.sub,
+                    style: AppTypography.labelSm.copyWith(
+                        color: isSelected
+                            ? AppColors.onPrimaryContainer
+                            : AppColors.onSurfaceVariant)),
               ],
             ),
           ),
