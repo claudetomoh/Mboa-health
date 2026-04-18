@@ -44,21 +44,7 @@ class ClinicDetailsScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              actions: [
-                Padding(
-                  padding: const EdgeInsets.all(6),
-                  child: CircleAvatar(
-                    backgroundColor: Colors.black.withValues(alpha: 0.3),
-                    child: IconButton(
-                      onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Options coming soon.')),
-                      ),
-                      icon: const Icon(Icons.more_vert_rounded,
-                          color: Colors.white, size: 20),
-                    ),
-                  ),
-                ),
-              ],
+              actions: const [],
               flexibleSpace: FlexibleSpaceBar(
                 background: Stack(
                   fit: StackFit.expand,

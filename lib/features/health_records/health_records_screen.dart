@@ -22,6 +22,8 @@ class HealthRecordsScreen extends StatefulWidget {
 }
 
 class _HealthRecordsScreenState extends State<HealthRecordsScreen> {
+  String _searchQuery = '';
+
   @override
   void initState() {
     super.initState();
@@ -60,7 +62,10 @@ class _HealthRecordsScreenState extends State<HealthRecordsScreen> {
                               fontWeight: FontWeight.w500)),
                       const SizedBox(height: AppSpacing.xl),
                       // Search + filter
-                      _SearchBar(),
+                      _SearchBar(
+                        onSearch: (q) =>
+                            setState(() => _searchQuery = q),
+                      ),
                       const SizedBox(height: AppSpacing.xl),
                       // ── Records from API (or empty state) ──
                       Consumer<HealthRecordsProvider>(
@@ -74,7 +79,23 @@ class _HealthRecordsScreenState extends State<HealthRecordsScreen> {
                               ),
                             );
                           }
-                          if (p.records.isEmpty) {
+                          final q = _searchQuery.toLowerCase().trim();
+                          final filtered = q.isEmpty
+                              ? p.records
+                              : p.records.where((r) {
+                                  return r.title
+                                          .toLowerCase()
+                                          .contains(q) ||
+                                      (r.doctor
+                                              ?.toLowerCase()
+                                              .contains(q) ??
+                                          false) ||
+                                      (r.facility
+                                              ?.toLowerCase()
+                                              .contains(q) ??
+                                          false);
+                                }).toList();
+                          if (filtered.isEmpty) {
                             return _EmptyRecordsState();
                           }
                           return Column(
@@ -84,7 +105,7 @@ class _HealthRecordsScreenState extends State<HealthRecordsScreen> {
                                   style: AppTypography.headlineSm.copyWith(
                                       fontWeight: FontWeight.w700)),
                               const SizedBox(height: AppSpacing.md),
-                              ...p.records.map((r) => Padding(
+                              ...filtered.map((r) => Padding(
                                     padding: const EdgeInsets.only(
                                         bottom: AppSpacing.sm),
                                     child: _LiveRecordTile(
@@ -160,25 +181,22 @@ class _AppBar extends StatelessWidget {
       title: Text('Mboa Health',
           style: AppTypography.titleLg.copyWith(
               color: AppColors.primary, fontWeight: FontWeight.w800)),
-      actions: [
-        IconButton(
-          onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Options coming soon.')),
-          ),
-          icon: const Icon(Icons.more_vert_rounded, color: AppColors.primary),
-        ),
-      ],
+      actions: const [],
     );
   }
 }
 
 class _SearchBar extends StatelessWidget {
+  const _SearchBar({required this.onSearch});
+  final ValueChanged<String> onSearch;
+
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
         Expanded(
           child: TextField(
+            onChanged: onSearch,
             decoration: InputDecoration(
               hintText: 'Search records, doctors, or clinics...',
               hintStyle: AppTypography.bodyMd,

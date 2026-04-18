@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../core/routing/app_routes.dart';
@@ -181,10 +182,16 @@ class RoleSelectionScreen extends StatelessWidget {
                               children: [
                                 WidgetSpan(
                                   child: GestureDetector(
-                                    onTap: () => ScaffoldMessenger.of(context)
-                                        .showSnackBar(const SnackBar(
-                                          content: Text('Support contact coming soon.'),
-                                        )),
+                                    onTap: () async {
+                                      final uri = Uri(
+                                        scheme: 'mailto',
+                                        path: 'support@mboahealth.cm',
+                                        query: 'subject=Account%20Type%20Help',
+                                      );
+                                      if (await canLaunchUrl(uri)) {
+                                        await launchUrl(uri);
+                                      }
+                                    },
                                     child: Text(
                                       'Contact Support',
                                       style: GoogleFonts.inter(

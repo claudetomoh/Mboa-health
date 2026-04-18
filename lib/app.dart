@@ -6,6 +6,7 @@ import 'core/theme/app_theme.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/clinic_locator/providers/clinic_locator_provider.dart';
 import 'features/health_records/providers/health_records_provider.dart';
+import 'features/symptom_checker/providers/symptom_checker_provider.dart';
 import 'features/notifications/providers/notifications_provider.dart';
 import 'features/profile/providers/profile_provider.dart';
 import 'features/reminders/providers/reminders_provider.dart';
@@ -31,6 +32,7 @@ class MboaHealthApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => RemindersProvider()),
         ChangeNotifierProvider(create: (_) => NotificationsProvider()),
         ChangeNotifierProvider(create: (_) => ClinicLocatorProvider()),
+        ChangeNotifierProvider(create: (_) => SymptomCheckerProvider()),
       ],
       child: MaterialApp(
         // ── Identity ───────────────────────────────────────────────────────
