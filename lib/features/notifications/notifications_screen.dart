@@ -6,7 +6,6 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../core/constants/app_typography.dart';
 import '../../core/models/notification_model.dart';
-import '../../core/routing/app_routes.dart';
 import 'providers/notifications_provider.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -47,137 +46,61 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               ),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  // Today
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Today',
-                          style: AppTypography.headlineSm.copyWith(
-                              fontWeight: FontWeight.w700)),
-                      TextButton(
-                        onPressed: () =>
-                            context.read<NotificationsProvider>().markAllRead(),
-                        child: Text('Mark all as read',
-                            style: AppTypography.labelMd.copyWith(
-                                color: AppColors.secondary,
-                                fontWeight: FontWeight.w500)),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  // Critical Alert
-                  const _CriticalAlertCard(),
-                  const SizedBox(height: AppSpacing.md),
-                  const _NotifCard(
-                    iconBg: AppColors.secondaryContainer,
-                    icon: Icons.health_and_safety_rounded,
-                    iconColor: AppColors.onSecondaryContainer,
-                    typeLabel: 'Health Insight',
-                    typeColor: AppColors.secondary,
-                    time: '2h ago',
-                    title: 'Your weekly sleep score improved by 12%',
-                    body:
-                        'Great job! Consistency in your bedtime routine is showing clear benefits in your recovery metrics.',
-                    isUnread: true,
-                    dimmed: false,
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  const _NotifCard(
-                    iconBg: AppColors.primaryFixed,
-                    icon: Icons.medication_rounded,
-                    iconColor: AppColors.onPrimaryFixedVariant,
-                    typeLabel: 'Reminders',
-                    typeColor: AppColors.primary,
-                    time: '4h ago',
-                    title: 'Time for your morning supplements',
-                    body:
-                        'Remember to take your Vitamin D and Omega-3 with food for better absorption.',
-                    isUnread: true,
-                    dimmed: false,
-                  ),
-                  const SizedBox(height: AppSpacing.xl),
-                  Text('Earlier this week',
-                      style: AppTypography.headlineSm.copyWith(
-                          fontWeight: FontWeight.w700)),
-                  const SizedBox(height: AppSpacing.md),
-                  const _NotifCard(
-                    iconBg: AppColors.surfaceContainerHigh,
-                    icon: Icons.calendar_today_rounded,
-                    iconColor: AppColors.onSurfaceVariant,
-                    typeLabel: 'Appointment',
-                    typeColor: AppColors.onSurfaceVariant,
-                    time: '2 days ago',
-                    title: 'Lab Results are Ready',
-                    body:
-                        'Your results from St. Luke\'s Diagnostic Center have been uploaded to your health records.',
-                    isUnread: false,
-                    dimmed: true,
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  const _NotifCard(
-                    iconBg: AppColors.surfaceContainerHigh,
-                    icon: Icons.groups_rounded,
-                    iconColor: AppColors.onSurfaceVariant,
-                    typeLabel: 'Community',
-                    typeColor: AppColors.onSurfaceVariant,
-                    time: '4 days ago',
-                    title: 'Wellness Workshop tomorrow',
-                    body:
-                        "Don't forget the 'Mindful Living' webinar starting at 10:00 AM. Access link is in your email.",
-                    isUnread: false,
-                    dimmed: true,
-                  ),
-                  const SizedBox(height: AppSpacing.xl4),
-                  // Empty state cue
-                  const _EmptyStateCue(),
-                  // ── Live notifications from API ──
                   Consumer<NotificationsProvider>(
                     builder: (_, p, _) {
                       if (p.isLoading) {
                         return const Center(
                           child: Padding(
-                            padding: EdgeInsets.symmetric(
-                                vertical: AppSpacing.xl),
+                            padding: EdgeInsets.symmetric(vertical: AppSpacing.xl8),
                             child: CircularProgressIndicator(),
                           ),
                         );
                       }
                       if (p.notifications.isEmpty) {
-                        return const SizedBox.shrink();
+                        return const _EmptyNotificationsState();
                       }
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const SizedBox(height: AppSpacing.xl),
                           Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('All Notifications',
+                              Text('Notifications',
                                   style: AppTypography.headlineSm.copyWith(
                                       fontWeight: FontWeight.w700)),
-                              if (p.unreadCount > 0)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: AppSpacing.md,
-                                      vertical: AppSpacing.xs),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primaryFixed,
-                                    borderRadius: BorderRadius.circular(
-                                        AppSpacing.radiusFull),
+                              Row(
+                                children: [
+                                  if (p.unreadCount > 0)
+                                    Container(
+                                      margin: const EdgeInsets.only(right: AppSpacing.sm),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: AppSpacing.md,
+                                          vertical: AppSpacing.xs),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primaryFixed,
+                                        borderRadius: BorderRadius.circular(
+                                            AppSpacing.radiusFull),
+                                      ),
+                                      child: Text('${p.unreadCount} unread',
+                                          style: AppTypography.labelSm.copyWith(
+                                              color: AppColors.onPrimaryFixedVariant,
+                                              fontWeight: FontWeight.w700)),
+                                    ),
+                                  TextButton(
+                                    onPressed: () =>
+                                        context.read<NotificationsProvider>().markAllRead(),
+                                    child: Text('Mark all read',
+                                        style: AppTypography.labelMd.copyWith(
+                                            color: AppColors.secondary,
+                                            fontWeight: FontWeight.w500)),
                                   ),
-                                  child: Text('${p.unreadCount} unread',
-                                      style: AppTypography.labelSm.copyWith(
-                                          color:
-                                              AppColors.onPrimaryFixedVariant,
-                                          fontWeight: FontWeight.w700)),
-                                ),
+                                ],
+                              ),
                             ],
                           ),
                           const SizedBox(height: AppSpacing.md),
                           ...p.notifications.map((n) => Padding(
-                                padding: const EdgeInsets.only(
-                                    bottom: AppSpacing.sm),
+                                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                                 child: _LiveNotifTile(notification: n),
                               )),
                         ],
@@ -221,237 +144,32 @@ class _AppBar extends StatelessWidget {
   }
 }
 
-class _CriticalAlertCard extends StatelessWidget {
-  const _CriticalAlertCard();
+class _EmptyNotificationsState extends StatelessWidget {
+  const _EmptyNotificationsState();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.tertiaryContainer,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-        boxShadow: [
-          BoxShadow(
-              color: AppColors.tertiaryContainer.withValues(alpha: 0.3),
-              blurRadius: 16,
-              offset: const Offset(0, 6))
-        ],
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            left: 0,
-            top: 0,
-            bottom: 0,
-            child: Container(
-              width: 4,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: AppSpacing.sm),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.10),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.crisis_alert_rounded,
-                      color: Colors.white, size: 24),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('CRITICAL ALERT',
-                              style: AppTypography.labelSm.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.8),
-                                  letterSpacing: 1.5)),
-                          Text('10m ago',
-                              style: AppTypography.labelSm.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.7),
-                                  letterSpacing: 0)),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                          'Emergency: High Blood Pressure detected',
-                          style: AppTypography.titleMd.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700)),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                          'Your smart-monitor detected a spike (155/95). Please rest and contact your physician if symptoms persist.',
-                          style: AppTypography.bodySm.copyWith(
-                              color: Colors.white.withValues(alpha: 0.9),
-                              height: 1.5)),
-                      const SizedBox(height: AppSpacing.sm),
-                      GestureDetector(
-                        onTap: () => Navigator.pushNamed(
-                            context, AppRoutes.emergencyPortal),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.base,
-                              vertical: AppSpacing.sm),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(
-                                AppSpacing.radiusMd),
-                          ),
-                          child: Text('Take Action',
-                              style: AppTypography.labelSm.copyWith(
-                                  color: AppColors.tertiaryContainer,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.5)),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NotifCard extends StatelessWidget {
-  const _NotifCard({
-    required this.iconBg,
-    required this.icon,
-    required this.iconColor,
-    required this.typeLabel,
-    required this.typeColor,
-    required this.time,
-    required this.title,
-    required this.body,
-    required this.isUnread,
-    required this.dimmed,
-  });
-
-  final Color iconBg, iconColor, typeColor;
-  final IconData icon;
-  final String typeLabel, time, title, body;
-  final bool isUnread, dimmed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Opacity(
-      opacity: dimmed ? 0.75 : 1.0,
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        decoration: BoxDecoration(
-          color: dimmed
-              ? AppColors.surfaceContainerLow
-              : AppColors.surfaceContainerLowest,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-          boxShadow: dimmed
-              ? null
-              : [
-                  BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4))
-                ],
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: iconBg,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: iconColor, size: 22),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(typeLabel.toUpperCase(),
-                          style: AppTypography.labelSm.copyWith(
-                              color: typeColor, letterSpacing: 1.0)),
-                      Text(time,
-                          style: AppTypography.labelSm.copyWith(
-                              letterSpacing: 0)),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(title,
-                      style: AppTypography.titleSm.copyWith(
-                          fontWeight: FontWeight.w600)),
-                  const SizedBox(height: AppSpacing.xs2),
-                  Text(body,
-                      style: AppTypography.bodySm.copyWith(height: 1.5)),
-                ],
-              ),
-            ),
-            if (isUnread) ...
-              [
-                const SizedBox(width: AppSpacing.sm),
-                const Padding(
-                  padding: EdgeInsets.only(top: AppSpacing.xs),
-                  child: _UnreadDot(),
-                ),
-              ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _UnreadDot extends StatelessWidget {
-  const _UnreadDot();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 8,
-      height: 8,
-      decoration: const BoxDecoration(
-        color: AppColors.secondary,
-        shape: BoxShape.circle,
-      ),
-    );
-  }
-}
-
-class _EmptyStateCue extends StatelessWidget {
-  const _EmptyStateCue();
-
-  @override
-  Widget build(BuildContext context) {
-    return Opacity(
-      opacity: 0.3,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl8),
       child: Column(
         children: [
-          const Icon(Icons.notifications_off_rounded,
-              size: 56, color: AppColors.onSurfaceVariant),
+          Container(
+            width: 88,
+            height: 88,
+            decoration: BoxDecoration(
+              color: AppColors.primaryFixed.withValues(alpha: 0.4),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.notifications_none_rounded,
+                size: 44, color: AppColors.primary),
+          ),
+          const SizedBox(height: AppSpacing.xl),
+          Text('No notifications yet',
+              style: AppTypography.titleLg.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: AppSpacing.sm),
-          Text("You've reached the end of your alerts",
+          Text('Health alerts, reminders, and updates\nwill appear here.',
               textAlign: TextAlign.center,
-              style: AppTypography.bodyMd),
+              style: AppTypography.bodyMd.copyWith(color: AppColors.onSurfaceVariant)),
         ],
       ),
     );

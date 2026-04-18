@@ -341,7 +341,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     // Footer
                     Center(
                       child: Text(
-                        '© 2024 MBOA HEALTH SERVICES  •  ALL DATA ENCRYPTED',
+                        '© 2026 MBOA HEALTH SERVICES  •  ALL DATA ENCRYPTED',
                         style: GoogleFonts.inter(
                           fontSize: 9,
                           fontWeight: FontWeight.w700,

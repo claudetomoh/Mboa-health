@@ -9,8 +9,12 @@ class ProfileProvider extends ChangeNotifier {
   AppUser? _user;
   Map<String, int>           _stats             = {};
   List<Map<String, dynamic>> _emergencyContacts = [];
-  bool    _loading                              = false;
-  String? _error;
+  bool       _loading                           = false;
+  String?    _error;
+  /// Local preview bytes — set immediately on pick so every Consumer updates
+  /// without waiting for the upload round-trip or CORS on Image.network.
+  Uint8List? avatarPreviewBytes;
+  bool       avatarUploading = false;
 
   AppUser?                   get user              => _user;
   Map<String, int>           get stats             => Map.unmodifiable(_stats);
@@ -66,10 +70,14 @@ class ProfileProvider extends ChangeNotifier {
 
   // ── Avatar upload ─────────────────────────────────────────────────────────
 
-  /// Picks [file] from image_picker, uploads it, and updates local [_user].
-  /// Returns an error message on failure, or null on success.
+  /// Call this as soon as the user picks a file for an instant preview
+  /// everywhere before the upload completes.
   Future<String?> uploadAvatar(XFile file) async {
     final bytes    = await file.readAsBytes();
+    avatarPreviewBytes = bytes;
+    avatarUploading    = true;
+    notifyListeners();
+
     final filename = file.name.isNotEmpty ? file.name : 'avatar.jpg';
     final result   = await ApiClient.instance.uploadFile(
       ApiConfig.uploadAvatar,
@@ -77,14 +85,18 @@ class ProfileProvider extends ChangeNotifier {
       bytes,
       filename,
     );
+    avatarUploading = false;
     if (result is ApiSuccess<Map<String, dynamic>>) {
       final url = result.data['avatar_url'] as String?;
       if (url != null && _user != null) {
         _user = _user!.copyWith(avatarUrl: url);
-        notifyListeners();
       }
+      notifyListeners();
       return null;
     }
+    // On failure roll back the preview
+    avatarPreviewBytes = null;
+    notifyListeners();
     return (result as ApiFailure<Map<String, dynamic>>).message;
   }
 

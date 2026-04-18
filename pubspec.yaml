@@ -66,6 +66,14 @@ dependencies:
   # Lets users capture or select medical document images in AddRecordScreen.
   image_picker: ^1.1.2
 
+  # ── Maps & Location ────────────────────────────────────────────────────────
+  # Interactive map tiles via OpenStreetMap (no API key required)
+  flutter_map: ^7.0.2
+  # Coordinate type used by flutter_map markers
+  latlong2: ^0.9.1
+  # Device GPS for centering the map on the user's position
+  geolocator: ^13.0.4
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
