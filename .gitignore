@@ -46,3 +46,5 @@ app.*.map.json
 
 # Backend secrets — never commit real credentials
 backend/config.php
+# One-time admin seeder — delete from server after use, never commit
+backend/seed_admin.php

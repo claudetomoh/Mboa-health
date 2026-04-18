@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -29,7 +29,7 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
   final _picker = ImagePicker();
   String _selectedCategory = 'Prescription';
   DateTime? _selectedDate;
-  XFile? _pickedFile;
+  Uint8List? _imageBytes;
   bool _saving = false;
 
   @override
@@ -77,7 +77,10 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
       imageQuality: 85,
       maxWidth: 1920,
     );
-    if (file != null) setState(() => _pickedFile = file);
+    if (file != null) {
+      final bytes = await file.readAsBytes();
+      if (mounted) setState(() => _imageBytes = bytes);
+    }
   }
 
   Future<void> _pickDate() async {
@@ -181,7 +184,7 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                           color: AppColors.onSurfaceVariant)),
                   const SizedBox(height: AppSpacing.xl),
                   // ── Camera upload area ────────────────────────────────
-                  _UploadArea(file: _pickedFile, onTap: _showImageSourceSheet),
+                  _UploadArea(imageBytes: _imageBytes, onTap: _showImageSourceSheet),
                   const SizedBox(height: AppSpacing.xl),
                   // ── Form ─────────────────────────────────────────────
                   Form(
@@ -385,8 +388,8 @@ class _AppBar extends StatelessWidget {
 }
 
 class _UploadArea extends StatelessWidget {
-  const _UploadArea({required this.file, required this.onTap});
-  final XFile? file;
+  const _UploadArea({required this.imageBytes, required this.onTap});
+  final Uint8List? imageBytes;
   final VoidCallback onTap;
 
   @override
@@ -404,13 +407,13 @@ class _UploadArea extends StatelessWidget {
                 width: 2,
                 style: BorderStyle.none),
           ),
-          child: file != null
+          child: imageBytes != null
               ? ClipRRect(
                   borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      Image.file(File(file!.path), fit: BoxFit.cover),
+                      Image.memory(imageBytes!, fit: BoxFit.cover),
                       Positioned(
                         top: AppSpacing.sm,
                         right: AppSpacing.sm,

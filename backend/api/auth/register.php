@@ -31,7 +31,8 @@ if (strlen($passwordHash) < 32) {
 if (empty($salt)) {
     json_error(422, 'Password salt is required.');
 }
-if (!in_array($role, ['patient', 'doctor', 'admin'], true)) {
+// Admin accounts are seeded directly — never allowed through public registration.
+if (!in_array($role, ['patient', 'doctor'], true)) {
     $role = 'patient'; // default to patient if invalid
 }
 if ($phone && !preg_match('/^\+?[0-9]{7,15}$/', $phone)) {
