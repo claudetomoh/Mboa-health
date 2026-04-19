@@ -29,11 +29,16 @@ class AuthProvider extends ChangeNotifier {
   /// Called at app start — restores session from secure storage if the token
   /// is still valid by calling GET /api/auth/me.php.
   Future<bool> tryRestoreSession() async {
-    final token = await SecureStorage.getToken();
+    String? token;
+    try {
+      token = await SecureStorage.getToken();
+    } catch (_) {
+      return false; // Web Crypto unavailable (HTTP) — no stored session
+    }
     if (token == null) return false;
 
     // Temporarily put the token in AuthGuard memory so ApiClient can use it
-    final role = await SecureStorage.getSavedRole() ?? 'patient';
+    final role = await SecureStorage.getSavedRole().catchError((_) => null) ?? 'patient';
     AuthGuard.login(token: token, role: role);
 
     final result = await ApiClient.instance.get(ApiConfig.me);
@@ -44,7 +49,9 @@ class AuthProvider extends ChangeNotifier {
     }
 
     // Token invalid / expired — clean up
-    await SecureStorage.clearAll();
+    try {
+      await SecureStorage.clearAll();
+    } catch (_) {}
     AuthGuard.logout();
     return false;
   }
@@ -167,7 +174,9 @@ class AuthProvider extends ChangeNotifier {
   Future<void> logout() async {
     _user = null;
     AuthGuard.logout();          // clear in-memory session
-    await SecureStorage.clearAll(); // clear encrypted storage
+    try {
+      await SecureStorage.clearAll(); // clear encrypted storage
+    } catch (_) {}
     notifyListeners();
   }
 
@@ -179,11 +188,18 @@ class AuthProvider extends ChangeNotifier {
     _user = AppUser.fromJson(userJson);
 
     AuthGuard.login(token: token, role: _user!.role);
-    await SecureStorage.saveToken(token);
-    await SecureStorage.saveSession(
-      email: _user!.email,
-      role:  _user!.role,
-    );
+    // On web served over HTTP the Web Crypto API is unavailable, so
+    // flutter_secure_storage throws. Catch it so the in-memory session
+    // (AuthGuard) still works; the token just won't survive a page refresh.
+    try {
+      await SecureStorage.saveToken(token);
+      await SecureStorage.saveSession(
+        email: _user!.email,
+        role:  _user!.role,
+      );
+    } catch (_) {
+      // Storage unavailable (e.g. HTTP context) — session is memory-only.
+    }
     notifyListeners();
   }
 

@@ -61,40 +61,48 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _loginWithApi(String email) async {
-    final authProvider = context.read<AuthProvider>();
+    try {
+      final authProvider = context.read<AuthProvider>();
 
-    // Step 1: fetch the stored salt for this email (OWASP A02)
-    final salt = await authProvider.fetchSalt(email);
-    if (!mounted) return;
+      // Step 1: fetch the stored salt for this email (OWASP A02)
+      final salt = await authProvider.fetchSalt(email);
+      if (!mounted) return;
 
-    if (salt == null) {
+      if (salt == null) {
+        setState(() {
+          _loading = false;
+          _securityError = 'Unable to reach the server. Check your connection.';
+        });
+        return;
+      }
+
+      // Step 2: client-side SHA-256 pre-hash — raw password never leaves device
+      final passwordHash = PasswordHasher.hashPassword(_passwordCtrl.text, salt);
+
+      // Step 3: authenticate against the API
+      final error = await authProvider.login(
+        email: email,
+        passwordHash: passwordHash,
+      );
+      if (!mounted) return;
+
+      if (error == null) {
+        _rateLimiter.recordSuccess(email);
+        Navigator.pushReplacementNamed(context, AppRoutes.dashboard);
+      } else {
+        final remaining = _rateLimiter.recordFailure(email);
+        setState(() {
+          _loading = false;
+          _securityError = remaining > 0
+              ? '$error $remaining attempt${remaining == 1 ? '' : 's'} remaining before lockout.'
+              : 'Too many failed attempts. Account temporarily locked.';
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
       setState(() {
         _loading = false;
-        _securityError = 'Unable to reach the server. Check your connection.';
-      });
-      return;
-    }
-
-    // Step 2: client-side SHA-256 pre-hash — raw password never leaves device
-    final passwordHash = PasswordHasher.hashPassword(_passwordCtrl.text, salt);
-
-    // Step 3: authenticate against the API
-    final error = await authProvider.login(
-      email: email,
-      passwordHash: passwordHash,
-    );
-    if (!mounted) return;
-
-    if (error == null) {
-      _rateLimiter.recordSuccess(email);
-      Navigator.pushReplacementNamed(context, AppRoutes.dashboard);
-    } else {
-      final remaining = _rateLimiter.recordFailure(email);
-      setState(() {
-        _loading = false;
-        _securityError = remaining > 0
-            ? '$error $remaining attempt${remaining == 1 ? '' : 's'} remaining before lockout.'
-            : 'Too many failed attempts. Account temporarily locked.';
+        _securityError = 'An unexpected error occurred. Please try again.';
       });
     }
   }
