@@ -233,10 +233,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton(
-                              onPressed: () => ScaffoldMessenger.of(context)
-                                  .showSnackBar(const SnackBar(
-                                    content: Text('Password reset coming soon.'),
-                                  )),
+                              onPressed: () => Navigator.pushNamed(
+                                  context, AppRoutes.forgotPassword),
                               style: TextButton.styleFrom(
                                 foregroundColor: AppColors.secondary,
                                 padding: const EdgeInsets.symmetric(

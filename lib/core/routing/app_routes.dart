@@ -6,6 +6,8 @@ import '../../features/splash/splash_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
 import '../../features/auth/login/login_screen.dart';
 import '../../features/auth/sign_up/sign_up_screen.dart';
+import '../../features/auth/forgot_password/forgot_password_screen.dart';
+import '../../features/auth/reset_password/reset_password_screen.dart';
 import '../../features/role_selection/role_selection_screen.dart';
 import '../../features/dashboard/dashboard_screen.dart';
 import '../../features/symptom_checker/symptom_checker_screen.dart';
@@ -37,6 +39,8 @@ abstract final class AppRoutes {
   static const String roleSelection = '/role-selection';
   static const String login = '/login';
   static const String signUp = '/sign-up';
+  static const String forgotPassword = '/forgot-password';
+  static const String resetPassword  = '/reset-password';
   static const String dashboard = '/dashboard';
   static const String symptomChecker = '/symptom-checker';
   static const String clinicLocator = '/clinic-locator';
@@ -57,6 +61,8 @@ abstract final class AppRoutes {
         roleSelection: (_) => const RoleSelectionScreen(),
         login: (_) => const LoginScreen(),
         signUp: (_) => const SignUpScreen(),
+        forgotPassword: (_) => const ForgotPasswordScreen(),
+        resetPassword:  (_) => const ResetPasswordScreen(),
         dashboard: (_) => const DashboardScreen(),
         symptomChecker: (_) => const SymptomCheckerScreen(),
         clinicLocator: (_) => const ClinicLocatorScreen(),

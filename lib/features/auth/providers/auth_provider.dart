@@ -124,6 +124,44 @@ class AuthProvider extends ChangeNotifier {
     return null;
   }
 
+  // ── Forgot Password ──────────────────────────────────────────────────────
+
+  /// Requests a 6-digit OTP to be sent to [email].
+  /// Returns null on success, or an error message.
+  Future<String?> forgotPassword(String email) async {
+    final result = await ApiClient.instance.post(
+      ApiConfig.forgotPassword,
+      {'email': email},
+      auth: false,
+    );
+    if (result is ApiSuccess<Map<String, dynamic>>) return null;
+    return (result as ApiFailure<Map<String, dynamic>>).message;
+  }
+
+  // ── Reset Password ────────────────────────────────────────────────────────
+
+  /// Verifies the OTP and updates the user's password.
+  /// Returns null on success, or an error message.
+  Future<String?> resetPassword({
+    required String email,
+    required String token,
+    required String newPasswordHash,
+    required String newSalt,
+  }) async {
+    final result = await ApiClient.instance.post(
+      ApiConfig.resetPassword,
+      {
+        'email':           email,
+        'token':           token,
+        'newPasswordHash': newPasswordHash,
+        'newSalt':         newSalt,
+      },
+      auth: false,
+    );
+    if (result is ApiSuccess<Map<String, dynamic>>) return null;
+    return (result as ApiFailure<Map<String, dynamic>>).message;
+  }
+
   // ── Logout ─────────────────────────────────────────────────────────────────
 
   Future<void> logout() async {
