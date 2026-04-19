@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'app.dart';
+import 'core/services/notification_service.dart';
 
 /// Entry point for Mboa Health.
 ///
@@ -9,6 +10,7 @@ import 'app.dart';
 /// 1. Ensures Flutter engine is initialized.
 /// 2. Locks orientation to portrait-only.
 /// 3. Sets transparent status/nav bars for edge-to-edge rendering.
+/// 4. Initialises local notification service (medication reminders).
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -25,6 +27,8 @@ void main() async {
       systemNavigationBarIconBrightness: Brightness.dark,
     ),
   );
+
+  await NotificationService.instance.init();
 
   runApp(const MboaHealthApp());
 }
