@@ -74,6 +74,12 @@ dependencies:
   # Device GPS for centering the map on the user's position
   geolocator: ^13.0.4
 
+  # ── Notifications ──────────────────────────────────────────────────────────
+  # Scheduled local push notifications for medication reminders.
+  flutter_local_notifications: ^18.0.0
+  # IANA timezone database — required for zonedSchedule (exact alarm times).
+  timezone: ^0.10.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

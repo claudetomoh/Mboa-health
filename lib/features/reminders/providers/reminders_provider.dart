@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../../core/config/api_config.dart';
 import '../../../core/models/reminder_model.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/services/notification_service.dart';
 
 class RemindersProvider extends ChangeNotifier {
   List<Reminder> _reminders = [];
@@ -28,6 +29,7 @@ class RemindersProvider extends ChangeNotifier {
           .toList();
       _loading = false;
       _error   = null;
+      await _syncNotifications(_reminders);
     } else {
       _error   = (result as ApiFailure<Map<String, dynamic>>).message;
       _loading = false;
@@ -67,6 +69,21 @@ class RemindersProvider extends ChangeNotifier {
       // Revert on failure
       _reminders[index] = _reminders[index].copyWith(isActive: !newState);
       notifyListeners();
+    } else {
+      // Sync notification with confirmed new state
+      final r = _reminders[index];
+      if (newState) {
+        final parts = r.reminderTime.split(':');
+        await NotificationService.instance.scheduleReminder(
+          id:             id,
+          medicationName: r.medicationName,
+          hour:           int.tryParse(parts[0]) ?? 8,
+          minute:         int.tryParse(parts[1]) ?? 0,
+          frequency:      r.frequency,
+        );
+      } else {
+        await NotificationService.instance.cancelReminder(id);
+      }
     }
   }
 
@@ -80,6 +97,7 @@ class RemindersProvider extends ChangeNotifier {
     if (result is ApiSuccess<Map<String, dynamic>>) {
       _reminders.removeWhere((r) => r.id == id);
       notifyListeners();
+      await NotificationService.instance.cancelReminder(id);
       return null;
     }
     return (result as ApiFailure<Map<String, dynamic>>).message;
@@ -89,5 +107,24 @@ class RemindersProvider extends ChangeNotifier {
     _loading = val;
     _error   = null;
     notifyListeners();
+  }
+
+  // ── Notifications sync ────────────────────────────────────────────────────
+
+  /// Cancels all scheduled notifications then re-schedules every active
+  /// reminder. Called after a full fetch so the device always reflects
+  /// the current server state.
+  Future<void> _syncNotifications(List<Reminder> reminders) async {
+    await NotificationService.instance.cancelAll();
+    for (final r in reminders.where((r) => r.isActive)) {
+      final parts = r.reminderTime.split(':');
+      await NotificationService.instance.scheduleReminder(
+        id:             r.id,
+        medicationName: r.medicationName,
+        hour:           int.tryParse(parts[0]) ?? 8,
+        minute:         int.tryParse(parts[1]) ?? 0,
+        frequency:      r.frequency,
+      );
+    }
   }
 }
