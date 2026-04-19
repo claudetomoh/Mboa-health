@@ -10,7 +10,9 @@ abstract final class ApiConfig {
   static const String getSalt   = '$baseUrl/api/auth/get_salt.php';
   static const String login     = '$baseUrl/api/auth/login.php';
   static const String register  = '$baseUrl/api/auth/register.php';
-  static const String me        = '$baseUrl/api/auth/me.php';
+  static const String me             = '$baseUrl/api/auth/me.php';
+  static const String forgotPassword = '$baseUrl/api/auth/forgot_password.php';
+  static const String resetPassword  = '$baseUrl/api/auth/reset_password.php';
 
   // ── Health Records ─────────────────────────────────────────────────────────
   static const String healthRecords = '$baseUrl/api/health_records/index.php';
