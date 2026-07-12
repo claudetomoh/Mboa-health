@@ -484,12 +484,12 @@ class _ValidatedCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Clinically Validated',
+                Text('Rule-Based Guidance',
                     style: AppTypography.titleMd.copyWith(
                         color: AppColors.primary, fontWeight: FontWeight.w700)),
                 const SizedBox(height: AppSpacing.xs2),
                 Text(
-                    'Our AI assessment is based on peer-reviewed clinical protocols and diagnostic data.',
+                    'This assessment uses a deterministic, on-device rule engine, not AI, and does not replace professional medical advice.',
                     style: AppTypography.bodySm.copyWith(
                         color: AppColors.onSurfaceVariant)),
               ],

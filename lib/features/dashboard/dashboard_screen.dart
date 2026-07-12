@@ -420,7 +420,7 @@ class _BentoGrid extends StatelessWidget {
                   iconBgColor: AppColors.secondaryContainer.withValues(alpha: 0.3),
                   iconColor: AppColors.secondary,
                   title: 'Check Symptoms',
-                  subtitle: 'AI-powered health assessment',
+                  subtitle: 'Quick rule-based symptom guidance',
                   onTap: () => onNavigate(AppRoutes.symptomChecker),
                 ),
               ),
