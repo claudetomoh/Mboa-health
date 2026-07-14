@@ -31,18 +31,21 @@ lib/
 +-- shared/widgets/          - GradientButton, AppInputField, AppCard, AmbientBlob
 ```
 
-Not every feature has a `providers/` folder. `emergency/emergency_portal_screen.dart` calls
-`ApiClient` directly for its Alert Contacts action rather than going through a provider; this
-is the one screen that departs from the provider convention, worth keeping in mind since the
-QR Passport work (Tasks 4 through 6) extends this same screen.
+Not every feature has a `providers/` folder. `emergency/emergency_portal_screen.dart` now
+follows the standard provider convention: its Alert Contacts action and its Digital Health
+Passport section (`passport_section.dart`, see below) both go through `ChangeNotifier`
+providers rather than calling `ApiClient` directly.
 
 ## State management
 
 `MultiProvider` in `app.dart` registers one `ChangeNotifier` per feature with server state:
 `AuthProvider`, `ProfileProvider`, `HealthRecordsProvider`, `RemindersProvider`,
-`NotificationsProvider`, `ClinicLocatorProvider`, `SymptomCheckerProvider`. `ProfileProvider`
-is the source for blood type, allergies, and emergency contacts, all three come back together
-in one `fetchProfile()` call.
+`NotificationsProvider`, `ClinicLocatorProvider`, `SymptomCheckerProvider`,
+`PassportProvider`. `ProfileProvider` is the source for blood type, allergies, and emergency
+contacts, all three come back together in one `fetchProfile()` call; the Digital Health
+Passport section reads these same fields from `ProfileProvider` rather than fetching them a
+second time, and layers its own `PassportProvider` on top for passport-specific state
+(existence, active/disabled status, token, lifecycle actions).
 
 ## Security module (already implemented, not previously documented outside code comments)
 
@@ -51,7 +54,9 @@ in one `fetchProfile()` call.
 - **A01, Broken Access Control** -> `AuthGuard`, route-level, enforced in `app_routes.dart`
 - **A02, Cryptographic Failures** -> `SecureStorage` (JWT via `flutter_secure_storage`,
   encrypted Android prefs, never `SharedPreferences`), plus client-side password pre-hash
-  before transmission, bcrypt server-side
+  before transmission, bcrypt server-side. `generate_secure_token()` (`backend/helpers.php`)
+  issues the Digital Health Passport's public token: `random_bytes(32)`, hex-encoded, never
+  derived from user id, email, phone, or timestamp.
 - **A03, Injection** -> `InputSanitizer` in `security_utils.dart`, XSS/SQL pattern detection
   on form inputs
 - **A07, Auth Failures** -> `AppValidators` (password policy, email/phone validation),
@@ -74,12 +79,17 @@ backend/
 |   +-- health_records/           - index (full CRUD)
 |   +-- reminders/                  - index (full CRUD)
 |   +-- notifications/               - index (GET, mark_read, mark_all_read)
+|   +-- passport/                     - index.php (authenticated lifecycle: status/create/
+|                                        enable/regenerate/disable), view.php (public,
+|                                        unauthenticated, token-only lookup)
 +-- db.php, helpers.php, index.php, config.example.php
 +-- schema.sql
 ```
 
-No QR passport endpoint exists yet. When added (Task 4), it must be a separate file, not a
-shared router with the authenticated passport routes, per DECISIONS.md ADR-001.
+The QR passport public endpoint (`backend/api/passport/view.php`) exists as a separate file
+from the authenticated passport routes (`backend/api/passport/index.php`), never a shared
+router, per DECISIONS.md ADR-001. QR **generation** (client-side, via `qr_flutter`, encoding
+`view.php`'s URL) is implemented; QR **scanning** is not.
 
 ## Known data risk, not yet resolved
 
