@@ -8,7 +8,7 @@ require_once __DIR__ . '/config.php';
 function send_cors_headers(): void {
     header('Access-Control-Allow-Origin: ' . CORS_ORIGIN);
     header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-    header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-Token');
     header('Access-Control-Max-Age: 86400');
     header('Content-Type: application/json; charset=utf-8');
     // OWASP A05 — remove server fingerprinting headers
@@ -86,6 +86,17 @@ function jwt_decode(string $token): ?array {
     return $payload;
 }
 
+// ─── Secure Token Generation ──────────────────────────────────────────────────
+
+/**
+ * Generates a cryptographically secure, opaque hex token.
+ * OWASP A02 — uses random_bytes() (CSPRNG), never derived from user id,
+ * email, phone, or timestamps. Default 32 bytes = 64 hex characters.
+ */
+function generate_secure_token(int $bytes = 32): string {
+    return bin2hex(random_bytes($bytes));
+}
+
 // ─── Auth Middleware ──────────────────────────────────────────────────────────
 
 /**
@@ -97,6 +108,17 @@ function require_auth(): array {
     $authHeader = $_SERVER['HTTP_AUTHORIZATION']
                   ?? apache_request_headers()['Authorization']
                   ?? '';
+
+    // Fallback: Apache on some shared-hosting configs strips the Authorization
+    // header entirely. Accept the token via a custom X-Token header instead.
+    if (empty($authHeader) || !str_starts_with($authHeader, 'Bearer ')) {
+        $xToken = $_SERVER['HTTP_X_TOKEN']
+                  ?? apache_request_headers()['X-Token']
+                  ?? '';
+        if (!empty($xToken)) {
+            $authHeader = 'Bearer ' . $xToken;
+        }
+    }
 
     if (!str_starts_with($authHeader, 'Bearer ')) {
         json_error(401, 'Authentication required. Please log in.');

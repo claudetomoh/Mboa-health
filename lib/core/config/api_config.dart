@@ -34,6 +34,12 @@ abstract final class ApiConfig {
   static const String emergencyContacts =
       '$baseUrl/api/emergency_contacts/index.php';
 
+  // ── Digital Health Passport ────────────────────────────────────────────────
+  /// Authenticated lifecycle (status / create / enable / regenerate / disable).
+  static const String passport = '$baseUrl/api/passport/index.php';
+  /// Public, unauthenticated view — looked up by token only (CC-05A).
+  static const String passportView = '$baseUrl/api/passport/view.php';
+
   /// Request timeout duration.
   static const Duration timeout = Duration(seconds: 20);
 }

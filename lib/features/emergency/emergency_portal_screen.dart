@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../core/config/api_config.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../core/constants/app_typography.dart';
-import '../../core/network/api_client.dart';
+import '../profile/providers/profile_provider.dart';
+import 'passport_section.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Emergency Portal Screen
@@ -31,6 +32,14 @@ class _EmergencyPortalScreenState extends State<EmergencyPortalScreen>
     _pulseCtrl =
         AnimationController(vsync: this, duration: const Duration(seconds: 1))
           ..repeat();
+    // Medical ID card needs blood type / allergies / emergency contacts.
+    // Dashboard already loads these on login, but this screen is also
+    // reachable without visiting Dashboard first (e.g. from Clinic
+    // Details), so fetch defensively if not already loaded.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final profile = context.read<ProfileProvider>();
+      if (profile.user == null) profile.fetchProfile();
+    });
   }
 
   @override
@@ -67,18 +76,10 @@ class _EmergencyPortalScreenState extends State<EmergencyPortalScreen>
     }
   }
 
-  Future<void> _showAlertContacts() async {
-    // Fetch emergency contacts for the current user from the API.
-    final result =
-        await ApiClient.instance.get(ApiConfig.emergencyContacts);
-
-    if (!mounted) return;
-
-    List<Map<String, dynamic>> contacts = [];
-    if (result is ApiSuccess<Map<String, dynamic>>) {
-      final raw = result.data['contacts'] as List<dynamic>? ?? [];
-      contacts = raw.cast<Map<String, dynamic>>();
-    }
+  void _showAlertContacts() {
+    // ProfileProvider is the single source of truth for emergency contacts
+    // (same data backing the Medical ID card) — no separate fetch here.
+    final contacts = context.read<ProfileProvider>().emergencyContacts;
 
     showModalBottomSheet<void>(
       context: context,
@@ -220,6 +221,9 @@ class _EmergencyPortalScreenState extends State<EmergencyPortalScreen>
                     const SizedBox(height: AppSpacing.xl2),
                     // First-aid guides
                     const _FirstAidSection(),
+                    const SizedBox(height: AppSpacing.xl2),
+                    // Digital Health Passport (includes former Medical ID data)
+                    const PassportSection(),
                   ],
                 ),
               ),
@@ -414,50 +418,6 @@ class _FirstAidSection extends StatelessWidget {
                     ),
                   ))
               .toList(),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Container(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm + 4),
-                  boxShadow: [
-                    BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.06),
-                        blurRadius: 4)
-                  ],
-                ),
-                child: const Icon(Icons.medical_information_rounded,
-                    color: AppColors.tertiary, size: 20),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Your Medical ID',
-                        style: AppTypography.labelLg.copyWith(
-                            fontWeight: FontWeight.w600)),
-                    const SizedBox(height: AppSpacing.xs2),
-                    Text(
-                        'Blood Type: O+ \u2022 Allergies: Penicillin \u2022 ICE: Jane Doe (0712-345-678)',
-                        style: AppTypography.bodySm.copyWith(
-                            color: AppColors.onSurfaceVariant)),
-                  ],
-                ),
-              ),
-            ],
-          ),
         ),
       ],
     );

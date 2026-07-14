@@ -80,6 +80,11 @@ dependencies:
   # IANA timezone database — required for zonedSchedule (exact alarm times).
   timezone: ^0.10.0
 
+  # ── Digital Health Passport ────────────────────────────────────────────────
+  # Renders a QR code from the passport token/URL. Generation only — no
+  # camera or scanning capability is included.
+  qr_flutter: ^4.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

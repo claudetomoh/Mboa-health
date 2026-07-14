@@ -128,6 +128,27 @@ CREATE TABLE IF NOT EXISTS emergency_contacts (
   INDEX idx_user_id (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ─── Emergency Passports (Digital Health Passport backend foundation) ──────────
+-- One row per user (idx_user_id is UNIQUE). `token` is a cryptographically
+-- random opaque identifier (see generate_secure_token() in helpers.php),
+-- never derived from user_id/email/phone/timestamps. No public read endpoint
+-- exists yet — see backend/api/passport/index.php for the authenticated
+-- create/regenerate/disable lifecycle. A future public passport-view endpoint
+-- must look up strictly by `token`, never by user_id, per DECISIONS.md ADR-001.
+CREATE TABLE IF NOT EXISTS emergency_passports (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id     INT UNSIGNED NOT NULL,
+  token       CHAR(64)     NOT NULL,   -- 32 random bytes, hex-encoded
+  is_active   TINYINT(1)   NOT NULL DEFAULT 1,
+  created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
+                           ON UPDATE CURRENT_TIMESTAMP,
+  disabled_at DATETIME     DEFAULT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  UNIQUE INDEX idx_user_id (user_id),
+  UNIQUE INDEX idx_token   (token)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- =============================================================================
 -- SEED DATA — Cameroonian Clinics
 -- =============================================================================
