@@ -1,10 +1,14 @@
 # Mboa Health
 ## Current System Specification (CSS)
-### Competition Build Baseline, Version 1.0
+### Competition Build Baseline, Version 1.1
 ### Prepared for the ICT Innovation Challenge, Ministry of Posts and Telecommunications of Cameroon
-### Date: 2026-07-06
+### Date: 2026-07-14 (updated; original baseline 2026-07-06)
 
 This document describes only functionality that is verifiably present in the Mboa Health source tree at `c:\Users\tomoh.ikfingeh\Downloads\mboa_health` as of the date above. Every claim below was checked against the Flutter client (`lib/`), the PHP backend (`backend/`), the database schema (`backend/schema.sql`), and the Android manifest. Where a UI element displays text that is not backed by real data or a real computation, that is stated explicitly rather than omitted. No roadmap or planned functionality is described as built.
+
+**Revision note (2026-07-12):** this update incorporates six completed engineering tasks (internally tracked as CC-01 through CC-05B) that landed since the 2026-07-06 baseline: the Symptom Checker/Dashboard AI-claim correction, the Emergency Portal's Medical ID card being wired to real profile data, consolidation of Emergency Portal data access onto a single provider, a backend foundation for a Digital Health Passport (authenticated lifecycle + a separate public, token-only read endpoint), and a Flutter Digital Health Passport experience (status, QR generation, text view, regenerate/disable/enable) that supersedes the old Medical ID card. Every section below reflects the codebase as of this revision, not the 2026-07-06 baseline.
+
+**Revision note (2026-07-14):** the Digital Health Passport work described in the 2026-07-12 revision has now been committed to git as a standalone, self-contained commit (`feat(passport): implement Digital Health Passport foundation`) covering the backend schema/endpoints, `helpers.php`'s `generate_secure_token()`, `PassportProvider`, `PassportSection`, provider registration in `app.dart`, `ApiConfig` entries, and the `qr_flutter` dependency. This revision re-verified every Passport claim below directly against that committed code (not merely the working tree) and found it accurate as written, with one unrelated correction: Section 9's endpoint count ("thirteen") was stale and has been corrected to fifteen, matching Section 2.4. No Passport-related statement required a factual change. Unrelated in-flight work still uncommitted at this revision (clinic-locator proximity UI, sign-up country picker, reminders reliability fixes, the Apache Authorization-header workaround in `lib/core/network/api_client.dart`, etc.) is intentionally out of scope for this note and remains accurately described elsewhere in this document as present in the source tree, regardless of its commit status.
 
 ---
 
@@ -14,9 +18,9 @@ Mboa Health is a Flutter mobile application backed by a plain PHP/MySQL API, tar
 
 **Maturity assessment.** The system is a functioning single-developer MVP, not a production-hardened platform. The backend demonstrates several genuinely sound engineering practices for its size: every SQL statement uses parameterized PDO prepared statements, passwords are hashed client-side with SHA-256 and then server-side with bcrypt, JWT tokens are verified with constant-time signature comparison, and file uploads are validated by content-sniffed MIME type rather than client-supplied headers or filenames. At the same time, the deployment configuration transmits all traffic over plain HTTP with `usesCleartextTraffic` explicitly enabled, the live database password is stored in plaintext in a server-side config file, and a deployment script containing a plaintext SSH password is committed to version control. Test coverage is effectively zero (the only test file present is the unmodified Flutter project template).
 
-**What is production-ready.** The authentication flow (registration, login, forgot/reset password), the health records CRUD flow, the reminders CRUD flow with working local notification scheduling, the notifications center, and the clinics search/locator are functionally complete end to end, client to database, with server-side validation and ownership checks on every record.
+**What is production-ready.** The authentication flow (registration, login, forgot/reset password), the health records CRUD flow, the reminders CRUD flow with working local notification scheduling, the notifications center, and the clinics search/locator are functionally complete end to end, client to database, with server-side validation and ownership checks on every record. The Emergency Portal's Digital Health Passport section (blood type, allergies, primary contact, QR generation, lifecycle actions) is also implemented end to end, client to database, though it has been verified by code trace and static analysis rather than a live device/emulator run — see 3.12 for the exact scope of that caveat.
 
-**What is MVP quality or contains placeholder content.** Several screens present computed-looking information that is in fact static or hardcoded: the Emergency Portal's "Medical ID" card, the Clinic Details screen's opening hours and "About" paragraph and specialization list when a clinic has no services on file, the Symptom Checker's "Recommended Clinic" card on the results screen, and the Symptom Checker's own "AI" framing (the underlying engine is a deterministic rule-based keyword matcher, not a trained model or an external API call). The Role Selection screen is entirely decorative: all three role cards navigate to the same login screen without recording a role. These are identified individually in Section 3 and summarized in Section 10.
+**What is MVP quality or contains placeholder content.** Several screens present computed-looking information that is in fact static or hardcoded: the Clinic Details screen's opening hours and "About" paragraph and specialization list when a clinic has no services on file, and the Symptom Checker's "Recommended Clinic" card on the results screen. The Role Selection screen is entirely decorative: all three role cards navigate to the same login screen without recording a role. These are identified individually in Section 3 and summarized in Section 10. (As of this revision, the Emergency Portal's Medical ID card and the Symptom Checker's "AI" framing, both previously listed here, have been corrected — see 3.12 and 3.15.)
 
 ---
 
@@ -27,12 +31,12 @@ Mboa Health is a Flutter mobile application backed by a plain PHP/MySQL API, tar
 | Layer | Technology | Notes |
 |---|---|---|
 | Mobile client | Flutter (Dart SDK `^3.10.7`) | Single codebase, Android is the primary verified target |
-| State management | `provider` package, `ChangeNotifier` | 7 provider classes, registered via `MultiProvider` |
+| State management | `provider` package, `ChangeNotifier` | 8 provider classes, registered via `MultiProvider` |
 | Networking | `http` package | Singleton `ApiClient`, JSON over HTTP |
 | Local secure storage | `flutter_secure_storage` | JWT, email, role only |
 | Local notifications | `flutter_local_notifications` + `timezone` | No push/FCM integration |
 | Backend | Plain PHP, no framework | One `.php` file per endpoint, file-path-based routing |
-| Database | MySQL (PDO driver) | 6 tables in `schema.sql`; a 7th (`password_resets`) is used by the auth code but absent from the schema file |
+| Database | MySQL (PDO driver) | 7 tables in `schema.sql`; an 8th (`password_resets`) is used by the auth code but absent from the schema file |
 | Auth | Hand-rolled JWT (HMAC-SHA256) | No third-party JWT library |
 | Hosting | Shared Apache hosting (cPanel-style) | Confirmed via `deploy.py` and `.htaccess` |
 
@@ -46,7 +50,7 @@ Mboa Health is a Flutter mobile application backed by a plain PHP/MySQL API, tar
 │        │                       │
 │        ▼                       │
 │  ChangeNotifier Providers       │
-│  (7 classes, MultiProvider)     │
+│  (8 classes, MultiProvider)     │
 │        │                       │
 │        ▼                       │
 │  ApiClient (lib/core/network)   │
@@ -79,9 +83,12 @@ Mboa Health is a Flutter mobile application backed by a plain PHP/MySQL API, tar
 │  users, health_records,         │
 │  reminders, clinics,            │
 │  notifications,                 │
-│  emergency_contacts             │
+│  emergency_contacts,            │
+│  emergency_passports            │
 └───────────────────────────────┘
 ```
+
+A separate, unauthenticated public endpoint (`backend/api/passport/view.php`) reads from `emergency_passports` and `users`/`emergency_contacts` without going through the `require_auth()` gate shown above — it is deliberately not part of the authenticated request path in this diagram. See 6.8 and `DECISIONS.md` ADR-001.
 
 ### 2.3 Mobile application
 
@@ -89,11 +96,11 @@ The Flutter app follows a feature-first layout. Each feature under `lib/features
 
 ### 2.4 Backend
 
-The backend has no framework and no central dispatcher. `backend/index.php` is a static JSON information page, not a router. Each concrete endpoint is its own file under `backend/api/<resource>/`, and within that file the code branches on `$_SERVER['REQUEST_METHOD']`. Thirteen endpoint files exist in total across seven resources: auth (6 files), profile (2 files), clinics (1), emergency contacts (1), health records (1), reminders (1), notifications (1).
+The backend has no framework and no central dispatcher. `backend/index.php` is a static JSON information page, not a router. Each concrete endpoint is its own file under `backend/api/<resource>/`, and within that file the code branches on `$_SERVER['REQUEST_METHOD']`. Fifteen endpoint files exist in total across eight resources: auth (6 files), profile (2 files), clinics (1), emergency contacts (1), health records (1), reminders (1), notifications (1), passport (2 files — `index.php` authenticated lifecycle, `view.php` public read).
 
 ### 2.5 Database
 
-Six tables are defined in `backend/schema.sql`: `users`, `health_records`, `reminders`, `clinics`, `notifications`, `emergency_contacts`. All foreign keys reference `users.id` with `ON DELETE CASCADE`, except `clinics`, which is a standalone reference table with no foreign key relationships. A seventh table, `password_resets`, is read from and written to by the password-reset endpoints but does not appear in `schema.sql`; it must exist in the live database by some means not captured in the checked-in schema file. This is a documentation gap, not a runtime bug, since the live deployment evidently works.
+Seven tables are defined in `backend/schema.sql`: `users`, `health_records`, `reminders`, `clinics`, `notifications`, `emergency_contacts`, `emergency_passports`. All foreign keys reference `users.id` with `ON DELETE CASCADE`, except `clinics`, which is a standalone reference table with no foreign key relationships. An eighth table, `password_resets`, is read from and written to by the password-reset endpoints but does not appear in `schema.sql`; it must exist in the live database by some means not captured in the checked-in schema file. This is a documentation gap, not a runtime bug, since the live deployment evidently works. The new `emergency_passports` table (added for the Digital Health Passport) has not yet been applied to the live database — see 7's `emergency_passports` entry and RISK_REGISTER.md.
 
 ### 2.6 Authentication
 
@@ -117,7 +124,7 @@ See Section 8 for the complete package inventory with usage evidence for each.
 
 ### 2.11 State management
 
-State management is the `provider` package using `ChangeNotifier`. Seven provider classes exist, one per stateful feature: `AuthProvider`, `ProfileProvider`, `HealthRecordsProvider`, `RemindersProvider`, `NotificationsProvider`, `ClinicLocatorProvider`, `SymptomCheckerProvider`. All seven are registered in a single `MultiProvider` in `lib/app.dart`. There is no `riverpod`, `bloc`, or `get_it` dependency injection anywhere in the codebase.
+State management is the `provider` package using `ChangeNotifier`. Eight provider classes exist, one per stateful feature: `AuthProvider`, `ProfileProvider`, `HealthRecordsProvider`, `RemindersProvider`, `NotificationsProvider`, `ClinicLocatorProvider`, `SymptomCheckerProvider`, `PassportProvider`. All eight are registered in a single `MultiProvider` in `lib/app.dart`. There is no `riverpod`, `bloc`, or `get_it` dependency injection anywhere in the codebase.
 
 ### 2.12 Folder structure
 
@@ -152,8 +159,12 @@ backend/
     ├── emergency_contacts/   index (full CRUD)
     ├── health_records/       index (full CRUD, soft delete)
     ├── reminders/            index (full CRUD, hard delete)
-    └── notifications/        index (GET, mark-read actions)
+    ├── notifications/        index (GET, mark-read actions)
+    └── passport/              index.php (authenticated: status/create/enable/regenerate/disable),
+                                view.php (public, unauthenticated, token-only lookup)
 ```
+
+The Emergency feature folder (`lib/features/emergency/`) now also contains `providers/passport_provider.dart` (a `ChangeNotifier`, one of the eight providers listed in 2.11) and `passport_section.dart` (the Digital Health Passport widget, described in 3.12), alongside the pre-existing `emergency_portal_screen.dart`.
 
 ---
 
@@ -251,7 +262,7 @@ For each feature: purpose, status, mechanism, backend surface, database surface,
 
 **Backend endpoints called:** `GET /api/profile/index.php`, `GET /api/reminders/index.php`, and (on avatar tap) `POST /api/profile/upload_avatar.php`.
 
-**Limitations:** As of 2026-07-12, the "Check Symptoms" card subtitle reads "Quick rule-based symptom guidance," correctly describing the underlying feature (3.13), a deterministic rule engine, not an AI model. Provider-level errors from the profile or reminders fetch are not surfaced on this screen.
+**Limitations:** As of 2026-07-12, the "Check Symptoms" card subtitle reads "Quick rule-based symptom guidance," correctly describing the underlying feature (3.15), a deterministic rule engine, not an AI model. Provider-level errors from the profile or reminders fetch are not surfaced on this screen.
 
 **Screenshot needed:** Dashboard, both with reminders present and in the empty-reminders state.
 
@@ -321,21 +332,25 @@ For each feature: purpose, status, mechanism, backend surface, database surface,
 
 **Screenshot needed:** Notifications screen, populated and empty states.
 
-### 3.12 Emergency Portal
+### 3.12 Emergency Portal (including the Digital Health Passport)
 
-**Status:** Implemented, with one prominent hardcoded element.
+**Status:** Implemented. The former "Medical ID" card has been replaced by a Digital Health Passport section; QR **generation** exists, QR **scanning** and a public HTML passport page do not.
 
-**Description:** `lib/features/emergency/emergency_portal_screen.dart`. Contains a press-and-hold SOS button that dials the Cameroonian emergency number 15, an "Alert Contacts" action, two static first-aid guide cards (CPR, severe bleeding), and a "Your Medical ID" summary card.
+**Description:** `lib/features/emergency/emergency_portal_screen.dart`. Contains a press-and-hold SOS button that dials the Cameroonian emergency number 15, an "Alert Contacts" action, two static first-aid guide cards (CPR, severe bleeding), and — where the old static "Your Medical ID" card used to be — a Digital Health Passport section (`lib/features/emergency/passport_section.dart`).
 
-**How it works:** "Alert Contacts" fetches the user's real emergency contacts directly from the API (not through a provider) and presents a sheet with per-contact call and SMS shortcuts. The "Your Medical ID" card, however, displays the fixed string "Blood Type: O+ • Allergies: Penicillin • ICE: Jane Doe (0712-345-678)" regardless of who is logged in. This is static placeholder text; it is not wired to the real `blood_type`/`allergies` fields on the user's own profile or to their actual emergency contacts, even though both of those data sources exist and are used correctly elsewhere in the app (Profile screen, 3.8). This card is not a QR code and there is no QR generation, scanning, or dedicated "passport" screen anywhere in the codebase; no QR-related package is declared in `pubspec.yaml`.
+**How it works — Alert Contacts and Medical data:** Both "Alert Contacts" and the Digital Health Passport section now read from the same single source, `ProfileProvider.emergencyContacts` (a `ChangeNotifierProvider`, populated by `GET /api/profile/index.php`); the screen no longer makes its own independent, duplicate API call for contacts. Blood type and allergies also come from `ProfileProvider.user` (`AppUser.bloodType`/`.allergies`). All three fields fall back to the literal string `"Not provided"` when unset, rather than showing placeholder-looking text.
 
-**Backend endpoint used:** `GET /api/emergency_contacts/index.php` (called directly, not via a provider).
+**How it works — Digital Health Passport section:** A dedicated `PassportProvider` (`lib/features/emergency/providers/passport_provider.dart`) wraps the passport backend (6.8): fetching status, and issuing `create` / `enable` / `regenerate` / `disable` actions. The section displays an Active/Disabled status pill, blood type, allergies, primary emergency contact, and a "last updated" timestamp sourced from the passport API itself (not reconstructed client-side). Four actions are available: **Show QR** (renders a `qr_flutter` QR code encoding the public passport URL, `{baseUrl}/api/passport/view.php?token=<token>`, purely client-side, no network call), **View as Text** (calls the real public `view.php` endpoint, unauthenticated, and displays the exact whitelist a scan would return — not a client-side reconstruction of it), **Regenerate** (confirmation dialog, then issues a new token; the old token is immediately invalid at the backend), and **Disable/Enable** (confirmation dialog; the label and action swap depending on current status). If no passport exists yet for the account, the section shows a "Create Passport" prompt instead of the four actions.
 
-**Database:** `emergency_contacts`, indirectly `users` (not actually read by this screen despite displaying blood-type-shaped text).
+**Backend endpoints used:** `GET/POST /api/passport/index.php` (authenticated; `?action=create|enable|regenerate|disable`) for lifecycle management, and `GET /api/passport/view.php?token=` (public, unauthenticated) for the "View as Text" action specifically, so that action is guaranteed to show real scan output rather than an approximation.
 
-**Limitations:** The Medical ID card is the single most visible instance in the app of information that looks personalized and real-time but is not. First-aid guides are static content with no "View all" action wired up.
+**Database:** `emergency_passports` (new table — see 7), `users`, `emergency_contacts`.
 
-**Screenshot needed:** Emergency Portal main view; Alert Contacts sheet.
+**What the public passport endpoint exposes:** exactly seven whitelisted fields — `full_name`, `date_of_birth` (always `null`; no source exists anywhere in the schema for this field, a known and deliberately deferred gap, not an oversight — see RISK_REGISTER.md), `blood_type`, `allergies`, `emergency_contact_name`, `emergency_contact_phone`, `last_updated`. No database id, user id, or JWT is ever included in this endpoint's response — enforced by the endpoint hand-building its response object rather than passing through a database row (see 6.8).
+
+**Limitations:** QR **scanning** does not exist (no camera-based scan screen, no scanning package in `pubspec.yaml` — only `qr_flutter`, which is generation-only). There is no public HTML passport page; the public endpoint is a JSON API only, intended to be consumed by a future scanning client, not viewed directly in a browser. `date_of_birth` is always `null` end to end. Neither the Flutter passport UI nor the public endpoint has been exercised on a live device/emulator or against a live database in this revision — verification so far has been by code trace, `flutter analyze`, and (for the backend) manual logic tracing only; no PHP runtime or MySQL instance was available in the environment these changes were built in. The `emergency_passports` table exists in `schema.sql` but, like `password_resets`, has not been confirmed applied to the live deployed database. First-aid guides remain static content with no "View all" action wired up.
+
+**Screenshot needed:** Emergency Portal main view including the Digital Health Passport section (Active and Disabled states); the Show QR sheet; the View as Text sheet; Alert Contacts sheet.
 
 ### 3.13 Emergency Contacts
 
@@ -480,11 +495,14 @@ Dashboard ── "Set a reminder" / Reminders tab ──▶ Reminders list
 ```
 Dashboard ── "Emergency" card ──▶ Emergency Portal
                                         │
-                        ┌───────────────┼───────────────────┐
-                        ▼               ▼                   ▼
-                Hold SOS button   Alert Contacts       View Medical ID
-                (dials 15)        (GET real contacts,   (static placeholder,
-                                   call/SMS shortcuts)   not real user data)
+                ┌───────────────┬───────────────────┬─────────────────────┐
+                ▼               ▼                   ▼                     ▼
+        Hold SOS button   Alert Contacts     Digital Health Passport  Show QR / View
+        (dials 15)        (ProfileProvider,   (status, blood type,    as Text / Regen-
+                           call/SMS shortcuts) allergies, contact,     erate / Disable
+                                                real data via          (see 3.12)
+                                                ProfileProvider +
+                                                PassportProvider)
 ```
 
 ### 4.6 Symptom checker flow
@@ -542,7 +560,7 @@ Screen-by-screen detail (inputs, validation, API calls, states) is documented in
 | Reminders | `/reminders` | Yes | `GET/PUT/DELETE /reminders` | Full-screen spinner | "No reminders yet" |
 | Add Reminder | `/reminders/add` | Yes | `POST /reminders` | Button spinner | n/a |
 | Notifications | `/notifications` | Yes | `GET /notifications`, mark-read actions | Full-screen spinner | "No notifications yet" |
-| Emergency Portal | `/emergency` | Yes | `GET /emergency_contacts` | None shown during fetch | "No emergency contacts saved" |
+| Emergency Portal | `/emergency` | Yes | `GET /profile` (via `ProfileProvider`, shared with Alert Contacts), `GET/POST /passport` (status + lifecycle), `GET /passport/view.php` (View as Text) | None shown during fetch | "No emergency contacts saved"; Passport section shows a "Create Passport" prompt if none exists |
 | Clinic Locator | `/clinic-locator` | No (public data) | `GET /clinics` | Full-screen spinner | "No clinics found" |
 | Clinic Details | `/clinic-details` | No | None (uses passed-in object) | n/a | n/a |
 | Symptom Checker | `/symptom-checker` | Yes | None (local rule engine) | n/a | n/a |
@@ -601,9 +619,22 @@ Screen-by-screen detail (inputs, validation, API calls, states) is documented in
 | `notifications/index.php` | GET | Yes | List, capped at 50, with unread count |
 | `notifications/index.php` | POST | Yes | `?action=mark_read&id=` or `?action=mark_all_read` |
 
-### 6.8 Cross-cutting conventions
+### 6.8 Digital Health Passport
 
-Every endpoint response uses one of two envelopes: `{"success": true, "data": {...}}` on success, or `{"success": false, "message": "..."}` on failure, produced by the shared `json_ok()`/`json_error()` helpers. Every protected endpoint calls `require_auth()`, which extracts a Bearer token from the `Authorization` header (falling back to a custom `X-Token` header when the standard header is stripped by the hosting environment), decodes and verifies the JWT (HMAC-SHA256, constant-time signature comparison, expiry check), and returns the decoded claims (`user_id`, `email`, `role`) for the endpoint to use in scoping its queries. Every SQL statement across all thirteen endpoint files uses PDO prepared statements with positional parameters; no string-concatenated SQL was found anywhere in the reviewed code. Dynamic column names in partial-update endpoints (profile, reminders, health records, emergency contacts) are drawn from fixed server-side whitelists, not from user input, so this pattern does not introduce an injection risk.
+| Endpoint | Method | Auth | Purpose |
+|---|---|---|---|
+| `passport/index.php` | GET | Yes | Current passport status for the caller (`exists`, `token`, `is_active`, timestamps) |
+| `passport/index.php` | POST | Yes | `?action=create` — new passport only; 409 if one already exists (active or disabled) |
+| `passport/index.php` | POST | Yes | `?action=enable` — reactivates a disabled passport with a **brand-new** token; the old token is never reused |
+| `passport/index.php` | POST | Yes | `?action=regenerate` — new token for an active passport; 409 if the passport is disabled (regeneration cannot silently reactivate a disabled passport) |
+| `passport/index.php` | POST | Yes | `?action=disable` — deactivates the current passport; idempotent |
+| `passport/view.php` | GET | **No** | Public, token-only lookup (`?token=<64-hex-char>`). Returns a fixed 7-field whitelist. 400 malformed token, 404 unknown token or deactivated owning account (both identical, to avoid leaking which), 410 disabled passport, 200 + whitelist otherwise. `Cache-Control: no-store` and `Pragma: no-cache` set unconditionally. |
+
+Tokens are generated by `generate_secure_token()` in `helpers.php` — `random_bytes(32)`, hex-encoded (64 characters), never derived from user id, email, phone, or timestamps. `emergency_passports.token` carries a `UNIQUE` database constraint as defense-in-depth beyond the CSPRNG's own collision resistance. Retry-on-collision logic distinguishes a genuine token collision (retried, astronomically unlikely) from a `UNIQUE(user_id)` race on `create` (not retried — returns 409 directly), by inspecting the failing constraint's name in the driver error message rather than treating every `23000` integrity-constraint violation identically. Per `DECISIONS.md` ADR-001, `view.php` is a separate file from `index.php` with no shared router or conditional authentication between them.
+
+### 6.9 Cross-cutting conventions
+
+Every endpoint response uses one of two envelopes: `{"success": true, "data": {...}}` on success, or `{"success": false, "message": "..."}` on failure, produced by the shared `json_ok()`/`json_error()` helpers. Every protected endpoint calls `require_auth()`, which extracts a Bearer token from the `Authorization` header (falling back to a custom `X-Token` header when the standard header is stripped by the hosting environment), decodes and verifies the JWT (HMAC-SHA256, constant-time signature comparison, expiry check), and returns the decoded claims (`user_id`, `email`, `role`) for the endpoint to use in scoping its queries. `passport/view.php` (6.8) is the one deliberate exception to this pattern — it is public by design, per ADR-001, not an oversight. Every SQL statement across all fifteen endpoint files uses PDO prepared statements with positional parameters; no string-concatenated SQL was found anywhere in the reviewed code. Dynamic column names in partial-update endpoints (profile, reminders, health records, emergency contacts) are drawn from fixed server-side whitelists, not from user input, so this pattern does not introduce an injection risk.
 
 ---
 
@@ -642,6 +673,9 @@ Indexes: `idx_email`, `idx_role`. Referenced by: `health_records.user_id`, `remi
 ### `emergency_contacts`
 `id` PK, `user_id` FK → users, `full_name` VARCHAR(100) not null, `phone` VARCHAR(30) not null, `relationship` VARCHAR(50) nullable, `is_primary` TINYINT(1) default 0, timestamps. Index: `idx_user_id`.
 
+### `emergency_passports` (new — Digital Health Passport)
+`id` PK, `user_id` FK → users (`UNIQUE` — one passport row per user), `token` CHAR(64) not null (`UNIQUE`, 32 random bytes hex-encoded, see 6.8), `is_active` TINYINT(1) default 1, `created_at`/`updated_at` timestamps, `disabled_at` DATETIME nullable. Present in `schema.sql` as of this revision but **not yet confirmed applied to the live deployed database** — same category of gap as `password_resets` below, flagged in RISK_REGISTER.md rather than assumed resolved.
+
 ### `password_resets` (used by code, absent from `schema.sql`)
 Inferred columns from the auth endpoints: `id`, `email`, `token`, `expires_at`, `used`, `created_at`. This table must exist in the live database for the password-reset flow to function, but it is not present in the checked-in `schema.sql` file. This should be corrected so the schema file is a complete, reproducible source of truth.
 
@@ -652,6 +686,7 @@ users (1) ──< (many) health_records
 users (1) ──< (many) reminders
 users (1) ──< (many) notifications
 users (1) ──< (many) emergency_contacts
+users (1) ──< (1)    emergency_passports  [one-to-one; UNIQUE(user_id)]
 users (1) ──< (many) password_resets   [table not in schema.sql]
 
 clinics                                  [standalone, no FK relationships]
@@ -664,7 +699,7 @@ clinics                                  [standalone, no FK relationships]
 | Package | Version | Purpose | Where used |
 |---|---|---|---|
 | `google_fonts` | ^6.2.1 | Typography | Splash, onboarding, auth screens, role selection, typography constants |
-| `provider` | ^6.1.2 | State management | App-wide, all 7 providers and their consuming screens |
+| `provider` | ^6.1.2 | State management | App-wide, all 8 providers and their consuming screens |
 | `http` | ^1.2.2 | HTTP client | `ApiClient` exclusively |
 | `cupertino_icons` | ^1.0.8 | iOS-style icon set | **Declared but not used anywhere in the code** |
 | `equatable` | ^2.0.5 | Value equality for model classes | All 5 model classes |
@@ -678,6 +713,7 @@ clinics                                  [standalone, no FK relationships]
 | `geolocator` | ^13.0.4 | Device GPS location | Clinic Locator |
 | `flutter_local_notifications` | ^18.0.0 | Local scheduled notifications | `NotificationService` (medication reminders) |
 | `timezone` | ^0.10.0 | Timezone-correct scheduling | `NotificationService`, hardcoded to Africa/Douala |
+| `qr_flutter` | ^4.1.0 | QR code rendering (generation only, no scanning) | Digital Health Passport section's "Show QR" sheet |
 | `flutter_lints` | ^6.0.0 (dev) | Static analysis rules | Project-wide lint configuration |
 | `flutter_test` (dev) | sdk | Testing framework | One unmodified template smoke test |
 
@@ -687,7 +723,7 @@ Two dependencies, `cupertino_icons` and `shared_preferences`, are declared in `p
 
 ## 9. Code Quality Review
 
-**Architecture.** The feature-first client structure with a shared `core/` layer is a reasonable, conventional Flutter organization for a project of this size, and the backend's one-file-per-endpoint pattern with shared `helpers.php` conventions is consistent across all thirteen endpoints. Both sides apply their conventions uniformly rather than diverging endpoint to endpoint or screen to screen.
+**Architecture.** The feature-first client structure with a shared `core/` layer is a reasonable, conventional Flutter organization for a project of this size, and the backend's one-file-per-endpoint pattern with shared `helpers.php` conventions is consistent across all fifteen endpoints (see 2.4). Both sides apply their conventions uniformly rather than diverging endpoint to endpoint or screen to screen.
 
 **Naming.** Consistent camelCase in Dart, snake_case in PHP and SQL, matching each language's convention. Route names, provider class names, and model field names map predictably to their backend counterparts.
 
@@ -706,24 +742,26 @@ Two dependencies, `cupertino_icons` and `shared_preferences`, are declared in `p
 ## 10. Current Limitations
 
 ### Implemented and working end to end
-Registration, login, forgot/reset password, profile view and edit (including blood type and allergies), avatar upload, health records CRUD, medication reminders CRUD with local notification scheduling, in-app notifications list and mark-read, emergency contacts CRUD, clinic search and map view with proximity sorting, symptom checker rule engine and result display, session restore on app relaunch, route-level authentication guard.
+Registration, login, forgot/reset password, profile view and edit (including blood type and allergies), avatar upload, health records CRUD, medication reminders CRUD with local notification scheduling, in-app notifications list and mark-read, emergency contacts CRUD, clinic search and map view with proximity sorting, symptom checker rule engine and result display, session restore on app relaunch, route-level authentication guard, and — as of this revision — the Digital Health Passport (status display, QR generation, text view via the real public endpoint, regenerate/enable/disable lifecycle). The passport work is implemented and has passed static analysis, but has not been exercised on a live device or against a live database (see 3.12).
 
 ### Partially implemented
 - **Settings:** Personal Information and Notification Settings work; Privacy & Security and Language are visual stubs only.
 - **Symptom Checker:** functions as designed and, as of 2026-07-12, is correctly presented as rule-based rather than "AI"; its result screen's clinic recommendation is still fixed rather than computed.
 - **Clinic Details:** phone, coordinates, and rating are real; opening hours, specializations (when absent from the source data), and the About paragraph are generic filler.
 - **Add Health Record:** photo/document attachment is collected in the UI but never actually submitted or stored.
+- **Digital Health Passport:** generation, status, regenerate/enable/disable, and the public view endpoint all exist; QR **scanning** and a public HTML passport page do not (see 3.12). `date_of_birth` is always `null` in the public whitelist — no source exists anywhere in the schema.
 
 ### Placeholder (visually present, not functionally real)
-- Emergency Portal's "Medical ID" card (fixed blood type, allergy, and contact text for every user).
 - Analysis Result screen's "Recommended Clinic" card (fixed clinic name, rating, and hours for every analysis).
 - Profile's "Premium Member" / "Verified Pro" badges and the "Version 2.4.1 (Clinical Build)" footer string.
 - Role Selection screen (all three role cards behave identically).
 - Login screen's Google/Apple social buttons.
 - Dashboard's "Daily Insight" (rotates by day of week, not personalized or API-driven).
 
+(The Emergency Portal's "Medical ID" card, previously listed here, was replaced by the real, data-backed Digital Health Passport section — see 3.12. It is no longer placeholder content.)
+
 ### Not implemented
-- QR-based Emergency Passport (no QR generation, scanning, or dedicated screen exists anywhere in the codebase; this is worth stating clearly, since the app's real Emergency Portal is sometimes referred to informally by that name).
+- QR **scanning** (camera-based scan-and-display flow) and a public HTML passport page — QR **generation** and the underlying public JSON API now exist; scanning does not (see 3.12).
 - Medical conditions tracking as a distinct data field (only blood type and free-text allergies exist on the user profile; there is no conditions list, chronic-condition tracker, or structured conditions table).
 - Admin dashboard or any admin-specific UI.
 - Doctor dashboard or any doctor-specific UI or workflow.
@@ -762,7 +800,7 @@ Automated screenshot capture from a running instance of the application was not 
 | 19 | Add Reminder | Reminders → "+" | — |
 | 20 | Notifications (populated) | Dashboard → bell icon | — |
 | 21 | Notifications (empty) | New account, no notifications beyond the welcome message | — |
-| 22 | Emergency Portal | Dashboard → "Emergency" card | Include the Medical ID card in frame |
+| 22 | Emergency Portal | Dashboard → "Emergency" card | Include the Digital Health Passport section in frame |
 | 23 | Emergency Portal → Alert Contacts sheet | Emergency Portal → "Alert Contacts" | — |
 | 24 | Clinic Locator (map view) | Dashboard → "Find Clinic" | Capture with at least one search performed |
 | 25 | Clinic Details | Clinic Locator → any result | Include the hours/about/specializations sections in frame |
@@ -782,6 +820,6 @@ Automated screenshot capture from a running instance of the application was not 
 4. Add `password_resets` to `schema.sql` so the schema file is a complete and reproducible source of truth.
 5. ~~Correct the misleading UI copy: relabel the Symptom Checker as rule-based clinical guidance rather than "AI,"~~ **Done 2026-07-12** (Dashboard and Symptom Checker screens). Still open: fix the Add Reminder screen's inaccurate "5 minutes before" disclaimer, and either wire up or remove the Privacy & Security and Language settings rows.
 
-**Quick wins.** Wire the Emergency Portal's Medical ID card to the real, already-available `blood_type`/`allergies`/emergency-contact data; this is a small change with high demo impact since the underlying data model already supports it. Remove the two unused packages (`cupertino_icons`, `shared_preferences`) to reduce the dependency surface. Extract the duplicated blood-type list into a single shared constant.
+**Quick wins.** ~~Wire the Emergency Portal's Medical ID card to the real, already-available `blood_type`/`allergies`/emergency-contact data~~ **Done 2026-07-12** (now the Digital Health Passport section, 3.12). Remove the two unused packages (`cupertino_icons`, `shared_preferences`) to reduce the dependency surface. Extract the duplicated blood-type list into a single shared constant. Confirm the `emergency_passports` table (schema.sql) has actually been applied to the live database before any demo or judge-facing use.
 
-**High-impact improvements for the competition.** A QR-based emergency medical summary, generated from the real profile data and displayed or scanned from the Emergency Portal, is a natural and largely additive extension of work that already exists (the data model, the emergency contacts system, and the portal screen are all in place; only QR generation and, optionally, scanning would need to be added). Adding automated tests for the provider layer and the security/validation utilities would materially improve confidence during any live judging demo where the app is interacted with unpredictably. Introducing role-based UI gating (even a minimal doctor or admin view) would give the already-stored `role` field and the unused `AuthGuard.hasRole()` machinery a real purpose, rather than leaving them as inert code.
+**High-impact improvements for the competition.** ~~A QR-based emergency medical summary, generated from the real profile data and displayed or scanned from the Emergency Portal~~ — **QR generation and the backing public API are now implemented** (3.12, 6.8); QR **scanning** remains the one meaningful piece of this recommendation still open. A written security and privacy architecture document does not yet exist anywhere in the repository, despite substantial real evidence to describe (JWT, bcrypt, parameterized queries, the isolated public-endpoint design in `passport/view.php`) — this is a genuinely low-effort, high-value gap against the competition's own judging rubric (see `docs/competition/EVIDENCE_MATRIX.md`). Adding automated tests for the provider layer and the security/validation utilities would materially improve confidence during any live judging demo where the app is interacted with unpredictably, and would also be the only way to verify the passport work beyond static analysis, since no live device/emulator run has been performed on it yet. Introducing role-based UI gating (even a minimal doctor or admin view) would give the already-stored `role` field and the unused `AuthGuard.hasRole()` machinery a real purpose, rather than leaving them as inert code.
