@@ -11,12 +11,12 @@ security-module status reflect what's actually in the repo, not what earlier doc
 | Epic | Scope | Status |
 |---|---|---|
 | E - Clinical Reviewer Outreach | Contact only, scheduling, not the review itself | Not started |
-| A - Truth-in-UI Correction | Remove false AI/clinical-validation claims: `symptom_checker_screen.dart` (`_ValidatedCard`) and `dashboard_screen.dart:423` ("AI-powered health assessment"). Sweep pitch deck, Product Vision Blueprint, Onboarding Guide for the same category of claim. | Not started, corrected task issued |
+| A - Truth-in-UI Correction | Remove false AI/clinical-validation claims: `symptom_checker_screen.dart` (`_ValidatedCard`) and `dashboard_screen.dart:423` ("AI-powered health assessment"). Sweep pitch deck, Product Vision Blueprint, Onboarding Guide for the same category of claim. | Code-level fix landed (both locations); pitch deck/Product Vision Blueprint/Onboarding Guide sweep still open |
 | B - Security and Privacy Architecture Document | Can draw directly from `lib/core/security/security.dart`'s existing OWASP mapping (AuthGuard, SecureStorage, RateLimiter, InputSanitizer/AppValidators), not written from scratch | Not started |
 | C - Business Model Reframe | Remove hospitals-as-primary-customer and freemium claims, replace with honest "under review" framing | Not started |
-| G - Medical ID Card | Wire the hardcoded string in `emergency_portal_screen.dart:453` to real `ProfileProvider` data. Blood-type consolidation sub-task cut, no dual entry point exists in the actual code. | Not started |
-| F, Task 4 - QR Passport Public Endpoint | New isolated backend file, no shared router with authenticated passport routes | Not started |
-| F, Task 5 - QR Code Generation Screen | Frontend, Emergency Portal feature folder | Not started |
+| G - Medical ID Card | Wire the hardcoded string in `emergency_portal_screen.dart:453` to real `ProfileProvider` data. Blood-type consolidation sub-task cut, no dual entry point exists in the actual code. | Done - superseded by the Digital Health Passport section (Commit dd2a275); see CSS §3.12 |
+| F, Task 4 - QR Passport Public Endpoint | New isolated backend file, no shared router with authenticated passport routes | Done - `backend/api/passport/index.php`, `view.php` (Commit dd2a275) |
+| F, Task 5 - QR Code Generation Screen | Frontend, Emergency Portal feature folder | Done - `passport_section.dart` Show QR sheet, `qr_flutter` (Commit dd2a275) |
 | F, Task 6 - QR Code Scanning Screen | Frontend, calls Task 4's endpoint | Not started |
 | D - Project Document Assembly | Depends on A, B, C, F | Not started |
 | M - Video Demonstration Production | Depends on A, G, F being stable. Confirm length/format requirements before recording. | Not started |
@@ -47,6 +47,7 @@ security-module status reflect what's actually in the repo, not what earlier doc
 - Symptom Checker rule engine, on-device, zero network calls, eleven named conditions
 - Emergency Contacts: create, read, delete (not update) on both frontend and backend
 - No local database or file cache for health records, reduces at-rest exposure surface to the JWT token only
+- Digital Health Passport: authenticated lifecycle (create/enable/regenerate/disable), isolated public token-only view endpoint, and client-side QR generation, wired to real `ProfileProvider` data (`backend/api/passport/`, `lib/features/emergency/passport_section.dart`, `providers/passport_provider.dart` - Commit dd2a275)
 
 ## Open, unresolved before Phase 1 can fully close
 

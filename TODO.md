@@ -6,13 +6,13 @@ Implementation Master Plan v1.1 (Section 2, epics A through M) and Section 7 (Cl
 ## Phase 1: Video and Submission Gate
 
 - [ ] Epic E - Clinical reviewer outreach (contact only)
-- [x] Task 1 (Epic A) - reissued, expanded scope, not yet run: see below
+- [x] Task 1 (Epic A) - landed in both locations (`symptom_checker_screen.dart`, `dashboard_screen.dart`); see CSS §3.15
 - [ ] Epic A remainder - pitch deck / Product Vision Blueprint / Onboarding Guide narrative sweep (OWASP claim, freemium/B2B claims)
 - [ ] Epic B - Security and privacy architecture document
 - [ ] Epic C - Business model reframe
-- [ ] Epic G - Medical ID card wired to real profile data (blood-type consolidation sub-task cut, no dual entry point exists)
-- [ ] Task 4 - Backend, QR Passport public endpoint
-- [ ] Task 5 - Frontend, QR code generation screen
+- [x] Epic G - Medical ID card wired to real profile data (blood-type consolidation sub-task cut, no dual entry point exists) - superseded by the Digital Health Passport section; see CSS §3.12
+- [x] Task 4 - Backend, QR Passport public endpoint
+- [x] Task 5 - Frontend, QR code generation screen
 - [ ] Task 6 - Frontend, QR code scanning screen
 - [ ] Epic D - Project Document assembly and submission
 - [ ] Epic M - Video demonstration production
@@ -35,4 +35,4 @@ Implementation Master Plan v1.1 (Section 2, epics A through M) and Section 7 (Cl
 
 ## Process
 
-- [ ] Commit Implementation Master Plan v1.1 to the repo, replacing v1.0 as the checked-in reference
+- [x] Commit Implementation Master Plan v1.1 to the repo, replacing v1.0 as the checked-in reference
